@@ -15,6 +15,7 @@ evaluate.py — [8] 평가  ─ 담당 A
 from __future__ import annotations
 
 import io
+import re
 import sys
 
 import pandas as pd
@@ -27,6 +28,15 @@ sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8")
 NO_ANSWER_MARKERS = ("해당 정보 없음", "해당 차량 정보 없음", "정보 없음", "알 수 없")
 
 
+def _norm(text: str) -> str:
+    """모든 공백(스페이스·줄바꿈·탭)을 제거해 비교용으로 정규화.
+
+    회전된 정비 주기표는 셀 사이에 줄바꿈이 많이 들어가므로,
+    공백 하나만 지워서는 근거 문장이 매칭되지 않는다.
+    """
+    return re.sub(r"\s+", "", str(text))
+
+
 # ─────────────────────────── 검색 지표 ───────────────────────────
 def hit_at_k(result: RagResult, row: pd.Series) -> int:
     """정답 근거가 검색된 청크 안에 있으면 1.
@@ -34,19 +44,19 @@ def hit_at_k(result: RagResult, row: pd.Series) -> int:
     근거 문장의 앞부분이 청크에 포함되는지로 판정한다.
     (근거 문장 전체는 청크 경계로 잘릴 수 있음)
     """
-    needle = str(row["evidence_sentence"]).replace(" ", "")[:20]
+    needle = _norm(row["evidence_sentence"])[:20]
     if not needle:
         return 0
-    return int(any(needle in d.page_content.replace(" ", "") for d in result.contexts))
+    return int(any(needle in _norm(d.page_content) for d in result.contexts))
 
 
 def reciprocal_rank(result: RagResult, row: pd.Series) -> float:
     """정답 근거가 몇 번째로 검색됐는지의 역수."""
-    needle = str(row["evidence_sentence"]).replace(" ", "")[:20]
+    needle = _norm(row["evidence_sentence"])[:20]
     if not needle:
         return 0.0
     for rank, d in enumerate(result.contexts, start=1):
-        if needle in d.page_content.replace(" ", ""):
+        if needle in _norm(d.page_content):
             return 1.0 / rank
     return 0.0
 
