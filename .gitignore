@@ -216,13 +216,3 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
-
-# ─── team-01-project 전용 ───────────────────────
-# 비밀키
-.env
-
-# 취급설명서 PDF 5권 (약 140MB) — 각자 현대 다운로드 센터에서 받아 data/ 에 둘 것
-data/*.pdf
-
-# 벡터 인덱스 (재생성 가능)
-index/
