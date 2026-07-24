@@ -3,6 +3,13 @@
 > **파워트레인·차종별 비교 서비스**
 > 현대·기아 차량 5종의 취급설명서 PDF를 기반으로, 사용자의 자연어 질문에 **근거 문장과 함께** 답하는 검색증강생성(RAG) 질의응답 시스템
 
+<p>
+  <img src="https://img.shields.io/badge/Python-3.11+-blue" alt="python">
+  <img src="https://img.shields.io/badge/LangChain-RAG-green" alt="langchain">
+  <img src="https://img.shields.io/badge/HuggingFace-Transformers-yellow" alt="hf">
+  <img src="https://img.shields.io/badge/Eval-BERTScore%20%7C%20Ragas-orange" alt="eval">
+</p>
+
 ---
 
 ## 📌 프로젝트 개요
@@ -323,3 +330,7 @@ python src/evaluate.py
 | **D** | _(이름)_ | 프롬프트 엔지니어링 |
 
 ---
+
+<p align="center">
+  <sub>경북대학교 K-Digital Training · AI·빅데이터 전문가 양성과정 · Module 12 전이학습 기반 모델</sub>
+</p>
