@@ -3,6 +3,8 @@
 import unittest
 
 from prompt_templates import PromptVariant, build_prompt, format_context
+from retrieval_adapter import detect_car_from_question
+from run_local_model import is_exit_command
 
 
 class FakeDocument:
@@ -89,6 +91,27 @@ class PromptTemplateTests(unittest.TestCase):
     def test_empty_question_is_rejected(self):
         with self.assertRaises(ValueError):
             build_prompt("   ", [self.chunk_dict])
+
+    def test_interactive_exit_commands(self):
+        for command in ("q", "QUIT", " exit ", "종료"):
+            with self.subTest(command=command):
+                self.assertTrue(is_exit_command(command))
+
+        self.assertFalse(is_exit_command("타이어 공기압은?"))
+
+    def test_car_is_detected_from_question(self):
+        cases = {
+            "투싼의 엔진 경고등이 들어왔어": "tucson",
+            "아반떼의 와이퍼가 고장났어": "avante",
+            "아반떼 하이브리드 연료 탱크 용량은?": "avante_hev",
+            "아이오닉 6 충전 방법은?": "ioniq6",
+            "넥쏘 수소 충전 방법은?": "nexo",
+        }
+        for question, expected in cases.items():
+            with self.subTest(question=question):
+                self.assertEqual(detect_car_from_question(question), expected)
+
+        self.assertIsNone(detect_car_from_question("엔진 경고등이 들어왔어"))
 
 
 if __name__ == "__main__":

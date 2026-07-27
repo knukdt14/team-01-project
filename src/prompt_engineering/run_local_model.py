@@ -15,14 +15,18 @@ from pathlib import Path
 
 from prompt_templates import PromptVariant, build_prompt
 from retrieval_adapter import (
+    CAR_LABELS,
     DEFAULT_TOP_K,
     SUPPORTED_CARS,
+    create_retriever,
+    detect_car_from_question,
     retrieve_documents,
 )
 
 
 DEFAULT_MODEL = "Qwen/Qwen2.5-3B-Instruct"
 DEFAULT_ENV_FILE = Path(__file__).with_name(".env")
+EXIT_COMMANDS = {"q", "quit", "exit", "종료"}
 
 
 def load_env_file(path: Path) -> None:
@@ -76,14 +80,14 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument(
         "--question",
-        default="아반떼 엔진오일 교환주기는?",
-        help="모델에 전달할 질문",
+        default=None,
+        help="단건 실행 질문(생략하면 대화형 모드)",
     )
     parser.add_argument(
         "--car",
         choices=SUPPORTED_CARS,
-        default="avante",
-        help="검색할 차량(기본값: avante)",
+        default=None,
+        help="질문에 차종이 없을 때 사용할 초기 차량",
     )
     parser.add_argument(
         "--top-k",
@@ -99,8 +103,8 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--max-new-tokens",
         type=int,
-        default=256,
-        help="답변 최대 생성 토큰 수(기본값: 256)",
+        default=512,
+        help="답변 최대 생성 토큰 수(기본값: 512)",
     )
     parser.add_argument(
         "--env-file",
@@ -114,6 +118,12 @@ def parse_args() -> argparse.Namespace:
         help="모델 답변과 함께 완성된 프롬프트도 출력",
     )
     return parser.parse_args()
+
+
+def is_exit_command(value: str) -> bool:
+    """대화형 입력이 종료 명령인지 확인한다."""
+
+    return value.strip().lower() in EXIT_COMMANDS
 
 
 def load_model(model_id: str, token: str | None):
@@ -186,6 +196,72 @@ def generate_answer(
     return tokenizer.decode(generated_ids, skip_special_tokens=True).strip()
 
 
+def answer_question(
+    question: str,
+    *,
+    car: str,
+    args: argparse.Namespace,
+    variants: list[PromptVariant],
+    retriever,
+    tokenizer,
+    model,
+    torch_module,
+    device: str,
+) -> bool:
+    """한 질문을 검색하고 선택된 프롬프트별 답변을 출력한다."""
+
+    try:
+        documents = retrieve_documents(
+            question=question,
+            car=car,
+            k=args.top_k,
+            retriever=retriever,
+        )
+    except Exception as exc:
+        print(f"\n문서 검색 실패: {exc}", file=sys.stderr)
+        return False
+
+    if not documents:
+        print("검색된 문서가 없습니다.", file=sys.stderr)
+        return False
+
+    print(f"\n검색된 청크: {len(documents)}개")
+    for index, document in enumerate(documents, start=1):
+        metadata = getattr(document, "metadata", {})
+        review = " (검토 필요)" if metadata.get("needs_review") else ""
+        print(
+            f"  {index}. {metadata.get('car', 'unknown')} "
+            f"p.{metadata.get('page', 'unknown')}{review}"
+        )
+
+    for variant in variants:
+        prompt = build_prompt(
+            question=question,
+            documents=documents,
+            variant=variant,
+            car=car,
+        )
+        answer = generate_answer(
+            prompt=prompt,
+            tokenizer=tokenizer,
+            model=model,
+            torch_module=torch_module,
+            device=device,
+            max_new_tokens=args.max_new_tokens,
+        )
+
+        title = f" {variant.value.upper()} "
+        print(f"\n{title:=^76}")
+        if args.show_prompt:
+            print("[완성된 프롬프트]")
+            print(prompt)
+            print()
+        print("[모델 답변]")
+        print(answer or "(빈 답변)")
+
+    return True
+
+
 def main() -> int:
     args = parse_args()
     if args.max_new_tokens < 1:
@@ -205,34 +281,17 @@ def main() -> int:
         else [PromptVariant(args.variant)]
     )
 
-    print(
-        f"실제 FAISS 검색: car={args.car}, top_k={args.top_k}, "
-        f"question={args.question}"
-    )
+    print(f"FAISS retriever 로딩: top_k={args.top_k}")
     print("※ 최초 실행은 모델 다운로드 때문에 시간이 걸릴 수 있습니다.\n")
 
     try:
-        documents = retrieve_documents(
-            question=args.question,
-            car=args.car,
+        retriever = create_retriever(
+            car=None,
             k=args.top_k,
         )
     except Exception as exc:
-        print(f"\n문서 검색 실패: {exc}", file=sys.stderr)
+        print(f"\nFAISS retriever 로딩 실패: {exc}", file=sys.stderr)
         return 1
-
-    if not documents:
-        print("검색된 문서가 없습니다.", file=sys.stderr)
-        return 1
-
-    print(f"검색된 청크: {len(documents)}개")
-    for index, document in enumerate(documents, start=1):
-        metadata = getattr(document, "metadata", {})
-        review = " (검토 필요)" if metadata.get("needs_review") else ""
-        print(
-            f"  {index}. {metadata.get('car', 'unknown')} "
-            f"p.{metadata.get('page', 'unknown')}{review}"
-        )
 
     try:
         tokenizer, model, torch_module, device = load_model(args.model, token)
@@ -240,30 +299,82 @@ def main() -> int:
         print(f"\n모델 로딩 실패: {exc}", file=sys.stderr)
         return 1
 
-    for variant in variants:
-        prompt = build_prompt(
+    if args.question is not None:
+        target_car = detect_car_from_question(args.question) or args.car
+        if target_car is None:
+            print(
+                "질문에서 차종을 찾지 못했습니다. 질문에 아반떼, 아반떼 "
+                "하이브리드, 아이오닉6, 넥쏘, 투싼 중 하나를 포함하거나 "
+                "--car 옵션을 사용하세요.",
+                file=sys.stderr,
+            )
+            return 2
+
+        print(f"인식된 차량: {CAR_LABELS[target_car]} ({target_car})")
+        succeeded = answer_question(
             question=args.question,
-            documents=documents,
-            variant=variant,
-            car=args.car,
-        )
-        answer = generate_answer(
-            prompt=prompt,
+            car=target_car,
+            args=args,
+            variants=variants,
+            retriever=retriever,
             tokenizer=tokenizer,
             model=model,
             torch_module=torch_module,
             device=device,
-            max_new_tokens=args.max_new_tokens,
         )
+        return 0 if succeeded else 1
 
-        title = f" {variant.value.upper()} "
-        print(f"\n{title:=^76}")
-        if args.show_prompt:
-            print("[완성된 프롬프트]")
-            print(prompt)
-            print()
-        print("[모델 답변]")
-        print(answer or "(빈 답변)")
+    print("\n대화형 모드")
+    if args.car is None:
+        print("- 현재 차량: 미선택(첫 질문에 차종을 포함하세요)")
+    else:
+        print(f"- 초기 차량: {CAR_LABELS[args.car]} ({args.car})")
+    print("- 질문에서 차종을 인식하면 해당 차량으로 자동 전환합니다.")
+    print("- 이후 질문에 차종을 생략하면 마지막으로 인식한 차량을 유지합니다.")
+    print("- 빈 줄 또는 q, quit, exit, 종료를 입력하면 끝납니다.")
+    print("- 각 질문은 이전 대화와 분리하여 독립적으로 검색합니다.\n")
+
+    active_car = args.car
+    while True:
+        try:
+            question = input("질문> ").strip()
+        except (EOFError, KeyboardInterrupt):
+            print("\n대화형 모드를 종료합니다.")
+            break
+
+        if not question or is_exit_command(question):
+            print("대화형 모드를 종료합니다.")
+            break
+
+        detected_car = detect_car_from_question(question)
+        if detected_car is not None:
+            if detected_car != active_car:
+                print(
+                    f"차량 인식: {CAR_LABELS[detected_car]} "
+                    f"({detected_car})"
+                )
+            active_car = detected_car
+        elif active_car is None:
+            print(
+                "차종을 인식하지 못했습니다. 질문에 아반떼, 아반떼 하이브리드, "
+                "아이오닉6, 넥쏘, 투싼 중 하나를 포함해 주세요.\n"
+            )
+            continue
+        else:
+            print(f"현재 차량 유지: {CAR_LABELS[active_car]} ({active_car})")
+
+        answer_question(
+            question=question,
+            car=active_car,
+            args=args,
+            variants=variants,
+            retriever=retriever,
+            tokenizer=tokenizer,
+            model=model,
+            torch_module=torch_module,
+            device=device,
+        )
+        print()
 
     return 0
 
