@@ -1,0 +1,76 @@
+"""팀원의 FAISS retriever를 프롬프트 엔지니어링 코드에 연결한다.
+
+팀원 파일은 수정하지 않고 동적으로 불러온다. ``vectorstore_search.py``의
+FAISS 경로가 해당 파일 기준의 상대경로이므로, 로딩하는 동안에만 작업
+디렉터리를 벡터스토어 폴더로 변경한 뒤 즉시 원래 위치로 복원한다.
+"""
+
+from __future__ import annotations
+
+import importlib.util
+import os
+from pathlib import Path
+from types import ModuleType
+from typing import Any
+
+
+SUPPORTED_CARS = ("avante", "avante_hev", "ioniq6", "nexo", "tucson")
+DEFAULT_TOP_K = 3
+
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
+VECTORSTORE_DIR = PROJECT_ROOT / "src" / "embedding_&_vectorstore"
+VECTORSTORE_MODULE_PATH = VECTORSTORE_DIR / "vectorstore_search.py"
+
+
+def _load_vectorstore_module() -> ModuleType:
+    if not VECTORSTORE_MODULE_PATH.is_file():
+        raise RuntimeError(
+            f"벡터 검색 파일을 찾을 수 없습니다: {VECTORSTORE_MODULE_PATH}"
+        )
+
+    spec = importlib.util.spec_from_file_location(
+        "team_vectorstore_search",
+        VECTORSTORE_MODULE_PATH,
+    )
+    if spec is None or spec.loader is None:
+        raise RuntimeError("팀원의 벡터 검색 모듈을 불러올 수 없습니다.")
+
+    module = importlib.util.module_from_spec(spec)
+    try:
+        spec.loader.exec_module(module)
+    except ImportError as exc:
+        raise RuntimeError(
+            "벡터 검색 패키지가 부족합니다. TF_ENV에서 프로젝트의 "
+            "requirements.txt를 설치했는지 확인하세요."
+        ) from exc
+    return module
+
+
+def retrieve_documents(question: str, car: str, k: int = DEFAULT_TOP_K) -> list[Any]:
+    """질문과 차종으로 FAISS 상위 ``k``개 문서를 검색한다."""
+
+    clean_question = question.strip()
+    if not clean_question:
+        raise ValueError("질문은 비어 있을 수 없습니다.")
+    if car not in SUPPORTED_CARS:
+        choices = ", ".join(SUPPORTED_CARS)
+        raise ValueError(f"지원하지 않는 차종입니다. 가능한 값: {choices}")
+    if k < 1:
+        raise ValueError("검색할 청크 수(k)는 1 이상이어야 합니다.")
+
+    module = _load_vectorstore_module()
+    previous_directory = Path.cwd()
+    try:
+        os.chdir(VECTORSTORE_DIR)
+        retriever = module.load_retriever(car=car, k=k)
+    except Exception as exc:
+        raise RuntimeError(f"FAISS retriever 로딩 실패: {exc}") from exc
+    finally:
+        os.chdir(previous_directory)
+
+    try:
+        documents = list(retriever.invoke(clean_question))
+    except Exception as exc:
+        raise RuntimeError(f"문서 검색 실패: {exc}") from exc
+
+    return documents
