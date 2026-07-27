@@ -74,8 +74,35 @@ chcp 65001
 python -X utf8 -B src\prompt_engineering\run_local_model.py
 ```
 
-기본 실행은 `avante` 차량에 대해 제약형 프롬프트를 사용합니다. 질문과
-차량을 바꾸려면:
+기본 실행은 질문에서 차종을 자동으로 인식하는 제약형 대화형 모드입니다.
+모델과 FAISS retriever를 처음 한 번만 로드한 뒤 `질문>`에 여러 질문을
+연속으로 입력할 수 있습니다.
+
+```text
+질문> 투싼의 엔진 경고등이 들어왔어
+차량 인식: 투싼 (tucson)
+
+질문> 아반떼의 와이퍼가 고장났어
+차량 인식: 아반떼 (avante)
+
+질문> 엔진오일 교환주기는?
+현재 차량 유지: 아반떼 (avante)
+
+질문> 종료
+```
+
+빈 줄이나 `q`, `quit`, `exit`, `종료`를 입력하면 프로그램이 끝납니다.
+각 질문은 이전 대화 내용과 분리하여 독립적으로 검색하고 답변합니다.
+질문에 차종이 없으면 마지막으로 인식한 차량을 유지하며, 첫 질문에도
+차종이 없으면 지원 차량명을 포함해 달라고 안내합니다.
+
+질문에 차종이 없을 때 사용할 초기 차량을 지정할 수도 있습니다.
+
+```cmd
+python -X utf8 -B src\prompt_engineering\run_local_model.py --car tucson
+```
+
+대화형 모드 대신 질문 하나만 실행하려면:
 
 ```cmd
 python -X utf8 -B src\prompt_engineering\run_local_model.py --car tucson --question "타이어 공기압은?"
@@ -83,6 +110,8 @@ python -X utf8 -B src\prompt_engineering\run_local_model.py --car tucson --quest
 
 차량 값은 `avante`, `avante_hev`, `ioniq6`, `nexo`, `tucson` 중 하나여야
 합니다. 검색 청크 수를 바꾸려면 `--top-k 5`처럼 지정할 수 있습니다.
+답변 최대 생성 길이는 기본 512토큰이며, 필요한 경우
+`--max-new-tokens` 옵션으로 변경할 수 있습니다.
 
 최초 실행 시 `Qwen/Qwen2.5-3B-Instruct` 모델을 Hugging Face 캐시에
 다운로드합니다. 검색에 사용하는 `intfloat/multilingual-e5-base`도 캐시에
