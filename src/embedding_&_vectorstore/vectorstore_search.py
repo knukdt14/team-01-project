@@ -11,14 +11,14 @@ from langchain_huggingface import HuggingFaceEmbeddings
 from langchain_community.vectorstores import FAISS
 from langchain_chroma import Chroma
 
-CHUNKS_PATH = "../../output/chunks_hybrid.json"
+CHUNKS_PATH = "../../output/chunks_llmhybrid.json"
 EMBED_MODEL = "intfloat/multilingual-e5-base"   # 실험1에서 고른 모델
 TOP_K = 3
 CARS = ["avante", "avante_hev", "ioniq6", "nexo", "tucson"]   # 차종 5종
 K_SHOW = 10   # 필터 없을 때 차종이 얼마나 섞이는지 볼 상위 개수
 
 # 테스트할 때만 숫자 넣기 (예: 300). 전체 다 쓰면 None
-SAMPLE_SIZE = 300
+SAMPLE_SIZE = None
 
 # 필터 효과 보여줄 질문 (타이어 공기압은 5차종에 다 있어서 필터 없으면 섞임)
 # 질문에는 일부러 차종을 안 넣음 -> 그래야 필터 없을 때 딴 차 값이 섞이는 게 보임
@@ -92,6 +92,19 @@ def build_chroma(docs, embeddings):
     db = Chroma.from_documents(docs, embeddings, persist_directory="chroma_db")
     build_time = time.time() - t0   # persist_directory 주면 자동 저장됨
     return db, build_time
+
+
+def load_retriever(car=None, k=TOP_K):
+    # 저장된 FAISS 인덱스를 불러와서 retriever 로 돌려줌 (임베딩 다시 안 함)
+    # 팀원은 이 함수만 부르면 됨. car 를 주면 그 차종만 검색되게 필터가 걸림
+    embeddings = E5Embeddings(model_name=EMBED_MODEL,
+                              encode_kwargs={"normalize_embeddings": True})
+    db = FAISS.load_local("faiss_index", embeddings,
+                          allow_dangerous_deserialization=True)
+    search_kwargs = {"k": k, "fetch_k": 200}
+    if car is not None:
+        search_kwargs["filter"] = {"car": car}
+    return db.as_retriever(search_kwargs=search_kwargs)
 
 
 def avg_search_time(db, is_faiss):
