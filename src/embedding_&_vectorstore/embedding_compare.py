@@ -11,12 +11,12 @@ import random
 import numpy as np
 from sentence_transformers import SentenceTransformer
 
-CHUNKS_PATH = "../../output/chunks_hybrid.json"   # 한이가 넘겨준 파일
+CHUNKS_PATH = "../../output/chunks_llmhybrid.json"   # 한이가 넘겨준 파일
 RESULT_DIR = "result_embedding"      # 모델별 결과 저장 폴더
 TOP_K = 10                           # 정밀도 볼 때 위에서 몇 개까지 볼지
 
 # 테스트할 때만 숫자 넣기 (예: 300). 전체 다 쓰면 None
-SAMPLE_SIZE = 300
+SAMPLE_SIZE = None
 
 # 검색 테스트용 질문 + 기대 차종 (기대 차종은 실제 데이터에서 키워드 분포 확인한 값)
 # 차종: avante / avante_hev / ioniq6(전기) / nexo(수소) / tucson
@@ -161,8 +161,8 @@ if __name__ == "__main__":
 
     # 메모리가 부족하면 아래 3줄 중 2개를 주석 처리하고 하나씩 실행해도 됨
     # 결과가 파일로 저장되니까 마지막 요약(print_summary)은 돌린 모델만 모아서 보여줌
-    run_one_model("ko-sbert", "jhgan/ko-sbert-nli", texts, cars)
-    run_one_model("bge-m3", "BAAI/bge-m3", texts, cars)
+    # run_one_model("ko-sbert", "jhgan/ko-sbert-nli", texts, cars)
+    # run_one_model("bge-m3", "BAAI/bge-m3", texts, cars)
     run_one_model("multilingual-e5", "intfloat/multilingual-e5-base", texts, cars, is_e5=True)
 
     print_summary()
