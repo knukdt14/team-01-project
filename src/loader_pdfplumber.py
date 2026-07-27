@@ -2,11 +2,6 @@
 loader_pdfplumber.py
 현대·기아 취급설명서 5종 PDF 텍스트 추출 - pdfplumber 버전
 
-[역할] 파서 비교 실험의 B안. loader_pymupdf.py 와 같은 형식으로 추출해
-       두 파서 결과를 비교한다. pdfplumber는 글자 좌표를 기준으로 텍스트를
-       재조립하기 때문에, '글자만 눕힌' 표 페이지에서는 정렬이 꼬여
-       글자 순서가 역순으로 나올 수 있음
-
 [출력] output/pages_pdfplumber.json
 """
 
@@ -22,7 +17,7 @@ import pdfplumber
 DATA_DIR = Path("data")
 OUT_PATH = Path("output/pages_pdfplumber.json")
 
-# 차종 매핑 - CN7HEV가 CN7보다 먼저 와야 함 (loader_pymupdf.py 설명 참고)
+# 차종 매핑 - CN7HEV가 CN7보다 먼저 와야 함 
 CAR_MAP = {
     "CN7HEV": "avante_hev",
     "CN7":    "avante",
@@ -103,15 +98,6 @@ def print_stats(pages, parser_name, elapsed):
               f"평균 {chars / len(sub):.0f}자/p")
 
 
-def print_samples(pages):
-    """눕힌 페이지 샘플 - PyMuPDF 결과와 나란히 비교하면 순서 차이가 드러남"""
-    print("\n[회전 페이지 샘플 - 앞 80자]")
-    for car, page_nums in CHECK_PAGES.items():
-        for num in page_nums:
-            hit = [p for p in pages if p["car"] == car and p["page"] == num]
-            if hit:
-                print(f"  {car} p.{num}: {hit[0]['text'][:80]}")
-
 
 def main():
     start = time.time()
@@ -133,7 +119,6 @@ def main():
         json.dump(all_pages, f, ensure_ascii=False, indent=1)
 
     print_stats(all_pages, "pdfplumber", elapsed)
-    print_samples(all_pages)
     print(f"\n저장 완료: {OUT_PATH}")
 
 
