@@ -1,26 +1,29 @@
 # 벡터스토어 비교 (FAISS vs Chroma) + 차종 메타데이터 필터
-# 임베딩 모델은 실험1에서 고른 걸로 하나만 씀 (아래 EMBED_MODEL 에서 바꾸기)
+# 임베딩 모델: multilingual-e5 (실험1에서 선택)
 # 실행: python vectorstore_search.py
 
 import json
 import time
-import matplotlib.pyplot as plt
+from collections import Counter
 
 from langchain_core.documents import Document
 from langchain_huggingface import HuggingFaceEmbeddings
 from langchain_community.vectorstores import FAISS
 from langchain_chroma import Chroma
 
-CHUNKS_PATH = "chunks_hybrid.json"
-EMBED_MODEL = "BAAI/bge-m3"   # 실험1에서 고른 모델로 바꾸기 (e5 쓸거면 프리픽스 필요, 실험1 코드 참고)
+CHUNKS_PATH = "../../output/chunks_hybrid.json"
+EMBED_MODEL = "intfloat/multilingual-e5-base"   # 실험1에서 고른 모델
 TOP_K = 3
+CARS = ["avante", "avante_hev", "ioniq6", "nexo", "tucson"]   # 차종 5종
+K_SHOW = 10   # 필터 없을 때 차종이 얼마나 섞이는지 볼 상위 개수
 
 # 테스트할 때만 숫자 넣기 (예: 300). 전체 다 쓰면 None
-SAMPLE_SIZE = None
+SAMPLE_SIZE = 300
 
-# 필터가 왜 필요한지 보여줄 질문 (타이어 공기압은 5차종에 다 들어있어서 필터 없으면 섞임)
+# 필터 효과 보여줄 질문 (타이어 공기압은 5차종에 다 있어서 필터 없으면 섞임)
+# 질문에는 일부러 차종을 안 넣음 -> 그래야 필터 없을 때 딴 차 값이 섞이는 게 보임
 FILTER_DEMO_Q = "타이어 공기압 얼마로 맞춰야 하나요"
-FILTER_CAR = "avante"
+TARGET_CAR = "avante"   # 이 차종 값을 원한다고 가정 (아반떼 아닌 결과 = 틀린 값)
 
 # 검색 속도 비교용 질문들
 TEST_QUERIES = [
@@ -29,6 +32,17 @@ TEST_QUERIES = [
     "엔진오일 교환주기",
     "타이어 공기압",
 ]
+
+
+# e5 모델은 문서 앞에 passage:, 질문 앞에 query: 를 붙여야 제 성능이 나옴 (e5 공식 사용법)
+# HuggingFaceEmbeddings 를 상속받아서 프리픽스만 자동으로 붙여주게 만듦
+class E5Embeddings(HuggingFaceEmbeddings):
+    def embed_documents(self, texts):
+        texts = ["passage: " + t for t in texts]
+        return super().embed_documents(texts)
+
+    def embed_query(self, text):
+        return super().embed_query("query: " + text)
 
 
 def load_documents():
@@ -53,6 +67,18 @@ def load_documents():
     return docs
 
 
+def search(db, query, is_faiss, k, car=None):
+    # 필터 유무 + FAISS/Chroma 차이를 여기서 한 번에 처리
+    # FAISS 는 필터 쓸 때 후보를 넉넉히 뽑아야 해서 fetch_k 를 크게 줌
+    if car is None:
+        if is_faiss:
+            return db.similarity_search(query, k=k, fetch_k=200)
+        return db.similarity_search(query, k=k)
+    if is_faiss:
+        return db.similarity_search(query, k=k, fetch_k=200, filter={"car": car})
+    return db.similarity_search(query, k=k, filter={"car": car})
+
+
 def build_faiss(docs, embeddings):
     t0 = time.time()
     db = FAISS.from_documents(docs, embeddings)
@@ -69,57 +95,35 @@ def build_chroma(docs, embeddings):
 
 
 def avg_search_time(db, is_faiss):
+    # 질문 1건 검색하는 데 걸리는 평균 시간 (FAISS vs Chroma 검색 속도 비교용)
     times = []
     for q in TEST_QUERIES:
         t0 = time.time()
-        if is_faiss:
-            db.similarity_search(q, k=TOP_K, fetch_k=200)
-        else:
-            db.similarity_search(q, k=TOP_K)
+        search(db, q, is_faiss, TOP_K)
         times.append(time.time() - t0)
     return sum(times) / len(times)
 
 
 def show_filter_effect(db, is_faiss):
-    # 필터 없이 검색
-    print("\n[필터 없음] 질문: " + FILTER_DEMO_Q)
-    if is_faiss:
-        res = db.similarity_search(FILTER_DEMO_Q, k=TOP_K, fetch_k=200)
-    else:
-        res = db.similarity_search(FILTER_DEMO_Q, k=TOP_K)
-    for r in res:
-        print("  차종=" + r.metadata["car"] + " page=" + str(r.metadata["page"]))
+    print("\n===== 차종 필터 효과 =====")
+    print("질문: " + FILTER_DEMO_Q + "  (아반떼 값을 원한다고 가정)")
 
-    # car 필터 걸고 검색 -> 해당 차종만 나옴
-    print("[필터 car=" + FILTER_CAR + "] 질문: " + FILTER_DEMO_Q)
-    if is_faiss:
-        res = db.similarity_search(FILTER_DEMO_Q, k=TOP_K, fetch_k=200, filter={"car": FILTER_CAR})
-    else:
-        res = db.similarity_search(FILTER_DEMO_Q, k=TOP_K, filter={"car": FILTER_CAR})
-    for r in res:
-        print("  차종=" + r.metadata["car"] + " page=" + str(r.metadata["page"]))
+    # 1) 필터 없음 -> 상위 결과가 어느 차종에서 나왔는지 (아반떼 아닌 건 틀린 값)
+    res = search(db, FILTER_DEMO_Q, is_faiss, 5)
+    cars = [r.metadata["car"] for r in res]
+    pages = [r.metadata["page"] for r in res]
+    print("\n[필터 없음] 상위 5개 결과")
+    print("  차종 -> " + str(cars) + "  page=" + str(pages))
+    print("  -> 아반떼 말고 딴 차 값이 섞여 나옴 (아반떼 아닌 건 틀린 답)")
 
-
-def draw_chart(faiss_build, chroma_build, faiss_search, chroma_search):
-    import matplotlib.font_manager as fm
-    # 한글 폰트 설정 (윈도우 맑은고딕 / 맥 애플고딕 / 리눅스 나눔고딕 중 있는거 사용)
-    have = [f.name for f in fm.fontManager.ttflist]
-    for f in ["Malgun Gothic", "AppleGothic", "NanumGothic"]:
-        if f in have:
-            plt.rcParams["font.family"] = f
-            break
-    plt.rcParams["axes.unicode_minus"] = False
-
-    fig, ax = plt.subplots(1, 2, figsize=(9, 4))
-    b1 = ax[0].bar(["FAISS", "Chroma"], [faiss_build, chroma_build], color=["tab:blue", "tab:orange"])
-    ax[0].set_title("생성 시간(초)")
-    ax[0].bar_label(b1, fmt="%.1f")
-    b2 = ax[1].bar(["FAISS", "Chroma"], [faiss_search * 1000, chroma_search * 1000], color=["tab:blue", "tab:orange"])
-    ax[1].set_title("검색 평균시간(ms)")
-    ax[1].bar_label(b2, fmt="%.1f")
-    plt.tight_layout()
-    plt.savefig("vectorstore_compare.png", dpi=120)
-    print("\n그래프 저장: vectorstore_compare.png")
+    # 2) 필터 있음 -> 차종별로 걸면 그 차종만 나옴
+    print("\n[필터 있음] 차종별로 필터 걸고 상위 " + str(TOP_K) + "개")
+    for car in CARS:
+        res = search(db, FILTER_DEMO_Q, is_faiss, TOP_K, car=car)
+        out_cars = [r.metadata["car"] for r in res]
+        pages = [r.metadata["page"] for r in res]
+        print("  car=" + car.ljust(12) + " -> " + str(out_cars) + "  page=" + str(pages))
+    print("  -> 필터 건 차종만 정확히 나옴")
 
 
 if __name__ == "__main__":
@@ -127,8 +131,8 @@ if __name__ == "__main__":
     docs = load_documents()
 
     print("임베딩 모델 로딩... (" + EMBED_MODEL + ")")
-    embeddings = HuggingFaceEmbeddings(model_name=EMBED_MODEL,
-                                       encode_kwargs={"normalize_embeddings": True})
+    embeddings = E5Embeddings(model_name=EMBED_MODEL,
+                              encode_kwargs={"normalize_embeddings": True})
 
     print("\nFAISS 만드는 중...")
     faiss_db, faiss_build = build_faiss(docs, embeddings)
@@ -138,13 +142,15 @@ if __name__ == "__main__":
     chroma_db, chroma_build = build_chroma(docs, embeddings)
     print("Chroma 생성시간 = " + str(round(chroma_build, 1)) + "초")
 
-    # 검색 속도 비교
+    # 검색 속도 비교 (질문 1건 검색에 걸리는 평균 시간)
     faiss_search = avg_search_time(faiss_db, is_faiss=True)
     chroma_search = avg_search_time(chroma_db, is_faiss=False)
-    print("\n검색 평균시간  FAISS=" + str(round(faiss_search * 1000, 1)) + "ms  Chroma=" + str(round(chroma_search * 1000, 1)) + "ms")
 
     # 차종 필터 효과 보여주기 (FAISS 기준으로 시연)
     show_filter_effect(faiss_db, is_faiss=True)
 
-    # 그래프
-    draw_chart(faiss_build, chroma_build, faiss_search, chroma_search)
+    # 최종 비교 (그래프 대신 터미널 표)
+    print("\n===== FAISS vs Chroma 비교 =====")
+    print("항목".ljust(16) + "FAISS".ljust(12) + "Chroma")
+    print("생성시간(초)".ljust(15) + str(round(faiss_build, 1)).ljust(12) + str(round(chroma_build, 1)))
+    print("1회 검색(ms)".ljust(15) + str(round(faiss_search * 1000, 1)).ljust(12) + str(round(chroma_search * 1000, 1)))
