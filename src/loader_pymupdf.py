@@ -22,9 +22,6 @@ except ImportError:
 DATA_DIR = Path("data")                      # 원본 PDF 5종이 있는 폴더
 OUT_PATH = Path("output/pages_pymupdf.json") # 추출 결과 저장 경로
 
-# 파일명(프로젝트 코드)에 이 문자열이 들어있으면 해당 차종으로 인식.
-# 주의: "CN7HEV_2026" 에는 "CN7" 도 포함되므로, CN7HEV 를 CN7 보다
-#       먼저 둬야 HEV가 일반 아반떼로 잘못 잡히지 않는다 (dict는 넣은 순서대로 검사).
 CAR_MAP = {
     "CN7HEV": "avante_hev",
     "CN7":    "avante",
