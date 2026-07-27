@@ -2,10 +2,6 @@
 loader_pymupdf.py
 현대·기아 취급설명서 5종 PDF 텍스트 추출 - PyMuPDF 버전
 
-[역할] 파서 비교 실험의 A안. PDF 바이너리에서 페이지 단위로 텍스트를 뽑아
-       JSON으로 저장한다. loader_pdfplumber.py 와 출력 형식이 동일해야
-       나중에 두 결과를 나란히 비교할 수 있다.
-
 [출력] output/pages_pymupdf.json
        [{"car":"avante","page":1,"rotation":0,"n_chars":512,"text":"..."}, ...]
 """
@@ -104,14 +100,6 @@ def print_stats(pages, parser_name, elapsed):
               f"평균 {chars / len(sub):.0f}자/p")
 
 
-def print_samples(pages):
-    """회전(눕힌) 페이지 샘플 텍스트 출력 - 글자 순서 육안 확인용"""
-    print("\n[회전 페이지 샘플 - 앞 80자]")
-    for car, page_nums in CHECK_PAGES.items():
-        for num in page_nums:
-            hit = [p for p in pages if p["car"] == car and p["page"] == num]
-            if hit:
-                print(f"  {car} p.{num}: {hit[0]['text'][:80]}")
 
 
 def main():
@@ -134,7 +122,6 @@ def main():
         json.dump(all_pages, f, ensure_ascii=False, indent=1)  # 한글 그대로 저장
 
     print_stats(all_pages, "PyMuPDF", elapsed)
-    print_samples(all_pages)
     print(f"\n저장 완료: {OUT_PATH}")
 
 

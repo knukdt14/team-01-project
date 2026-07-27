@@ -1,100 +1,103 @@
 """
 chunker.py
-파서 결과(페이지 JSON) → 청크 JSON  [임베딩 직전 단계]
+LLM 구조화 결과(pages_llmhybrid.json) → 청크 JSON
 
-[역할] loader/hybrid 가 만든 '페이지 단위' JSON을 받아, 임베딩에 쓸
-       '청크 단위'로 잘라 저장한다. 이 파일이 전처리 파이프라인의
-       마지막 단계이며, 결과물을 다음 담당자(임베딩)가 그대로 받는다.
-
-[청킹 전략]
-  - 일반 페이지            : 512자 단위로 분할(문맥 유지 위해 겹침 50자)
-  - 눕힌 표 페이지(needs_review=True)
-                          : 자르지 않고 페이지 통째로 1개 청크로 유지
-    → 표는 이미 셀 구조가 깨진 상태라 억지로 자르면 더 손상됨.
-      플래그를 그대로 넘겨 임베딩 단계에서 검수/별도처리하게 한다.
-
-[파라미터] chunk_size / overlap 은 나중에 성능 실험 대상이므로
-           함수 인자로 받게 해 두었다(코드 수정 없이 숫자만 바꿔 실험).
-
-[출력] 각 청크에 car/page/needs_review 등 메타데이터를 붙인다.
-       car 는 검색 시 차종 필터로 반드시 사용해야 한다(5종 혼재).
+[출력] 각 청크에 car/page/needs_review/table_structured 메타 부착.
+       car 는 검색 시 차종 필터로 반드시 사용(5종 혼재).
 """
 
 import json
 from pathlib import Path
 
-# 한국어 문서에 맞춘 재귀 분할기 (문단→줄→문장→어절 순으로 자름)
-from langchain_text_splitters import RecursiveCharacterTextSplitter
-
 # ----------------------------------------------------------------------
 # 설정
 # ----------------------------------------------------------------------
-# 입력(페이지 JSON) → 출력(청크 JSON) 매핑.
-# 세 파서 결과를 각각 청킹해 두면, 임베딩 단계에서 셋을 비교할 수 있다.
+
 IO_MAP = {
-    "output/pages_pymupdf.json":    "output/chunks_pymupdf.json",
-    "output/pages_pdfplumber.json": "output/chunks_pdfplumber.json",
-    "output/pages_hybrid.json":     "output/chunks_hybrid.json",
+    "output/pages_llmhybrid.json": "output/chunks_llmhybrid.json",
 }
 
-# 청킹 파라미터 (나중에 실험으로 최적값 탐색)
+# 청킹 파라미터
 CHUNK_SIZE = 512     # 청크 최대 글자 수
-OVERLAP = 50         # 인접 청크가 겹치는 글자 수(문맥 끊김 방지)
+OVERLAP = 50         # 인접 청크 겹침 글자 수(문맥 끊김 방지)
 
-# 한국어 우선 구분자: 문단 → 줄 → 문장부호 → 공백 → 글자
+# 재귀 분할 구분자 우선순위: 문단 → 줄 → 문장 → 어절 → 글자
 SEPARATORS = ["\n\n", "\n", ". ", " ", ""]
 
 
-def make_splitter(chunk_size, overlap):
-    """분할기 생성 - 파라미터를 받아 실험 때 값만 바꾸면 되게 함"""
-    return RecursiveCharacterTextSplitter(
-        chunk_size=chunk_size,
-        chunk_overlap=overlap,
-        separators=SEPARATORS,
-        length_function=len,        # 글자 수 기준(토큰 아님)
-    )
+def split_text(text, chunk_size, overlap, seps=SEPARATORS):
+    
+    # 1) 구분자 우선순위대로 재귀 분할 → '기본 조각' 생성
+    def _split(txt, sep_idx):
+        if len(txt) <= chunk_size:                     # 충분히 짧으면 그대로
+            return [txt]
+        if sep_idx >= len(seps) or seps[sep_idx] == "":  # 더 못 자르면 글자 단위 절단
+            return [txt[i:i + chunk_size] for i in range(0, len(txt), chunk_size)]
+
+        parts = txt.split(seps[sep_idx])
+        result = []
+        for part in parts:
+            if len(part) <= chunk_size:
+                result.append(part)
+            else:
+                result.extend(_split(part, sep_idx + 1))  # 더 작은 구분자로
+        return result
+
+    raw_parts = [p for p in _split(text, 0) if p.strip()]
+
+    # 2) 조각들을 chunk_size 한도 내에서 합치고 overlap 적용
+    chunks = []
+    current = ""
+    for part in raw_parts:
+        candidate = (current + " " + part).strip() if current else part
+        if len(candidate) <= chunk_size:               # 한도 안이면 이어 붙임
+            current = candidate
+        else:
+            if current:
+                chunks.append(current)
+            if overlap > 0 and chunks:                 # 직전 청크 끝을 겹쳐 문맥 유지
+                tail = chunks[-1][-overlap:]
+                current = (tail + " " + part).strip()
+            else:
+                current = part
+    if current:
+        chunks.append(current)
+
+    return chunks
 
 
 def chunk_pages(pages, chunk_size=CHUNK_SIZE, overlap=OVERLAP):
-    """
-    페이지 리스트 → 청크 리스트.
-    일반 페이지는 분할, 눕힌 표 페이지는 통째로 1청크로 둔다.
-    """
-    splitter = make_splitter(chunk_size, overlap)
+    """페이지 리스트 → 청크 리스트. 표 페이지는 통짜, 일반은 분할."""
     chunks = []
 
     for p in pages:
         text = p.get("text", "").strip()
-        if not text:                          # 빈 페이지는 건너뜀
+        if not text:                                   # 빈 페이지 스킵
             continue
 
-        # 표 페이지 여부(hybrid에만 있는 키. 없으면 False로 간주)
-        is_table = p.get("needs_review", False)
+        is_table = p.get("needs_review", False)        # 표 페이지 여부
 
         if is_table:
-            # 표 페이지: 자르지 않고 페이지 전체를 1개 청크로
-            pieces = [text]
+            pieces = [text]                            # 표: 통째로 1청크
         else:
-            # 일반 페이지: 512자 단위로 분할
-            pieces = splitter.split_text(text)
+            pieces = split_text(text, chunk_size, overlap)  # 일반: 분할
 
-        # 각 조각을 메타데이터와 함께 청크로 저장
         for idx, piece in enumerate(pieces):
             chunks.append({
-                "car": p["car"],                       # 차종(검색 필터용, 필수)
-                "page": p["page"],                     # 출처 페이지
-                "chunk_id": f"{p['car']}_p{p['page']}_{idx}",  # 고유 ID
-                "n_chars": len(piece),                 # 청크 글자 수
-                "text": piece,                         # 청크 본문(임베딩 대상)
-                "needs_review": is_table,              # 표 페이지 플래그 유지
-                "ocr_applied": p.get("ocr_applied", False),  # OCR 교체 여부 유지
+                "car": p["car"],                                 # 차종(필터 필수)
+                "page": p["page"],                               # 출처 페이지
+                "chunk_id": f"{p['car']}_p{p['page']}_{idx}",    # 고유 ID
+                "n_chars": len(piece),
+                "text": piece,                                   # 임베딩 대상
+                "needs_review": is_table,                        # 표 플래그
+                "table_structured": p.get("table_structured", False),  # LLM 구조화 여부
             })
 
     return chunks
 
 
 def process(in_path, out_path, chunk_size=CHUNK_SIZE, overlap=OVERLAP):
-    """페이지 JSON 1개를 읽어 청킹 후 저장. 통계도 출력."""
+    """페이지 JSON 1개 → 청킹 → 저장 + 통계 출력"""
     in_p, out_p = Path(in_path), Path(out_path)
     if not in_p.exists():
         print(f"  건너뜀(입력 없음): {in_p}")
@@ -109,7 +112,6 @@ def process(in_path, out_path, chunk_size=CHUNK_SIZE, overlap=OVERLAP):
     with open(out_p, "w", encoding="utf-8") as f:
         json.dump(chunks, f, ensure_ascii=False, indent=1)
 
-    # 통계
     table_chunks = sum(1 for c in chunks if c["needs_review"])
     avg = sum(c["n_chars"] for c in chunks) / len(chunks) if chunks else 0
     print(f"  {in_p.name} → {out_p.name}")
@@ -119,10 +121,11 @@ def process(in_path, out_path, chunk_size=CHUNK_SIZE, overlap=OVERLAP):
 
 def main():
     print(f"청킹 설정: chunk_size={CHUNK_SIZE}, overlap={OVERLAP}\n")
-    for in_path, out_path in IO_MAP.items():   # 세 파서 결과를 각각 청킹
+    for in_path, out_path in IO_MAP.items():
         process(in_path, out_path)
-    print("\n완료. chunks_*.json 을 임베딩 단계로 전달.")
 
 
 if __name__ == "__main__":
     main()
+
+    
