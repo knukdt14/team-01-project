@@ -14,6 +14,7 @@ from pathlib import Path
 from types import ModuleType
 from typing import Any, Iterator
 
+from term_synonyms import normalize_terms
 
 SUPPORTED_CARS = ("avante", "avante_hev", "ioniq6", "nexo", "tucson")
 CAR_LABELS = {
@@ -125,7 +126,7 @@ def retrieve_documents(
 ) -> list[Any]:
     """질문과 차종으로 Chroma 상위 ``k``개 문서를 검색한다."""
 
-    clean_question = question.strip()
+    clean_question = normalize_terms(question.strip())
     if not clean_question:
         raise ValueError("질문은 비어 있을 수 없습니다.")
 
