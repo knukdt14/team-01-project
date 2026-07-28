@@ -1,10 +1,10 @@
 {
   "name": "multilingual-e5",
   "dim": 768,
-  "load_time": 99.43,
-  "embed_time": 1290.37,
-  "query_ms": 21.91,
+  "load_time": 10.67,
+  "embed_time": 1975.06,
+  "query_ms": 74.46,
   "top1_acc": 1.0,
-  "precision": 0.913,
-  "num_chunks": 12716
+  "precision": 0.94,
+  "num_chunks": 15637
 }
