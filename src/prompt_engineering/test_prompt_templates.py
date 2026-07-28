@@ -85,6 +85,17 @@ class PromptTemplateTests(unittest.TestCase):
             '"차량 취급설명서에서 해당 내용을 찾지 못했습니다."만',
             prompt,
         )
+        self.assertEqual(
+            prompt.count(
+                "차량 취급설명서에서 해당 내용을 찾지 못했습니다."
+            ),
+            1,
+        )
+        self.assertIn("관련 근거가 하나라도 있으면 반드시", prompt)
+        self.assertIn('"회생제동 기능"과', prompt)
+        self.assertIn("언급이 없는 것을", prompt)
+        self.assertIn("청크 ID를 사용하지 마세요", prompt)
+        self.assertIn('"p.6"으로 표시하세요', prompt)
         self.assertIn("관련 없는 문서의 출처를 붙이지 마세요", prompt)
         self.assertIn("질문과 직접 관련된 내용만", prompt)
 
@@ -323,6 +334,9 @@ class PromptTemplateTests(unittest.TestCase):
 
         rendered = output.getvalue()
         self.assertTrue(succeeded)
+        self.assertIn("[1번 청크]", rendered)
+        self.assertIn("청크 ID: avante_p391_0", rendered)
+        self.assertIn(self_document.page_content, rendered)
         self.assertIn("EVALUATION METRICS", rendered)
         self.assertIn("BERTScore P=0.910, R=0.820, F1=0.860", rendered)
         self.assertIn("Faithfulness: 1.000", rendered)

@@ -19,6 +19,7 @@ from prompt_templates import PROMPT_LABELS, PromptVariant, build_prompt
 from retrieval_adapter import (
     CAR_LABELS,
     DEFAULT_TOP_K,
+    RETRIEVER_LABEL,
     SUPPORTED_CARS,
     create_retriever,
     detect_car_from_question,
@@ -335,12 +336,19 @@ def answer_question(
 
     print(f"\n검색된 청크: {len(documents)}개")
     for index, document in enumerate(documents, start=1):
-        metadata = getattr(document, "metadata", {})
-        review = " (검토 필요)" if metadata.get("needs_review") else ""
+        metadata = getattr(document, "metadata", {}) or {}
+        content = str(getattr(document, "page_content", "") or "").strip()
+        review = "예" if metadata.get("needs_review") else "아니요"
+
+        print(f"\n[{index}번 청크]")
         print(
-            f"  {index}. {metadata.get('car', 'unknown')} "
-            f"p.{metadata.get('page', 'unknown')}{review}"
+            f"- 차종: {metadata.get('car', 'unknown')}"
+            f" | 페이지: {metadata.get('page', 'unknown')}"
+            f" | 청크 ID: {metadata.get('chunk_id', 'unknown')}"
+            f" | 검토 필요: {review}"
         )
+        print("[청크 내용]")
+        print(content or "(빈 청크)")
 
     generated_answers: list[str] = []
     generation_times: list[float] = []
@@ -442,8 +450,8 @@ def main() -> int:
         else [PromptVariant(args.variant)]
     )
 
-    print(f"FAISS retriever 로딩: top_k={args.top_k}")
-    print("※ 최초 실행은 모델 다운로드 때문에 시간이 걸릴 수 있습니다.\n")
+    print(f"{RETRIEVER_LABEL} retriever 로딩: top_k={args.top_k}")
+    print("※ 최초 실행은 bge-m3 모델 다운로드 때문에 시간이 걸릴 수 있습니다.\n")
 
     try:
         retriever = create_retriever(
@@ -451,7 +459,7 @@ def main() -> int:
             k=args.top_k,
         )
     except Exception as exc:
-        print(f"\nFAISS retriever 로딩 실패: {exc}", file=sys.stderr)
+        print(f"\n{RETRIEVER_LABEL} retriever 로딩 실패: {exc}", file=sys.stderr)
         return 1
 
     try:

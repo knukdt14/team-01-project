@@ -1,7 +1,7 @@
-"""팀원의 FAISS retriever를 프롬프트 엔지니어링 코드에 연결한다.
+"""팀원의 Chroma retriever를 프롬프트 엔지니어링 코드에 연결한다.
 
 팀원 파일은 수정하지 않고 동적으로 불러온다. ``vectorstore_search.py``의
-FAISS 경로가 해당 파일 기준의 상대경로이므로, 로딩하는 동안에만 작업
+Chroma 경로가 해당 파일 기준의 상대경로이므로, 로딩과 검색 중에 작업
 디렉터리를 벡터스토어 폴더로 변경한 뒤 즉시 원래 위치로 복원한다.
 """
 
@@ -9,9 +9,10 @@ from __future__ import annotations
 
 import importlib.util
 import os
+from contextlib import contextmanager
 from pathlib import Path
 from types import ModuleType
-from typing import Any
+from typing import Any, Iterator
 
 
 SUPPORTED_CARS = ("avante", "avante_hev", "ioniq6", "nexo", "tucson")
@@ -39,11 +40,24 @@ CAR_ALIASES = {
     "투싼": "tucson",
     "tucson": "tucson",
 }
-DEFAULT_TOP_K = 3
+DEFAULT_TOP_K = 5
+RETRIEVER_LABEL = "Chroma/bge-m3"
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 VECTORSTORE_DIR = PROJECT_ROOT / "src" / "embedding_&_vectorstore"
 VECTORSTORE_MODULE_PATH = VECTORSTORE_DIR / "vectorstore_search.py"
+
+
+@contextmanager
+def _vectorstore_working_directory() -> Iterator[None]:
+    """상대경로 Chroma 인덱스가 항상 같은 위치를 보도록 작업 경로를 고정한다."""
+
+    previous_directory = Path.cwd()
+    try:
+        os.chdir(VECTORSTORE_DIR)
+        yield
+    finally:
+        os.chdir(previous_directory)
 
 
 def _load_vectorstore_module() -> ModuleType:
@@ -85,7 +99,7 @@ def detect_car_from_question(question: str) -> str | None:
 
 
 def create_retriever(car: str | None = None, k: int = DEFAULT_TOP_K):
-    """차종 필터가 적용된 FAISS retriever를 한 번 로드한다."""
+    """차종 필터가 적용된 Chroma retriever를 한 번 로드한다."""
 
     if car is not None and car not in SUPPORTED_CARS:
         choices = ", ".join(SUPPORTED_CARS)
@@ -94,14 +108,11 @@ def create_retriever(car: str | None = None, k: int = DEFAULT_TOP_K):
         raise ValueError("검색할 청크 수(k)는 1 이상이어야 합니다.")
 
     module = _load_vectorstore_module()
-    previous_directory = Path.cwd()
     try:
-        os.chdir(VECTORSTORE_DIR)
-        retriever = module.load_retriever(car=car, k=k)
+        with _vectorstore_working_directory():
+            retriever = module.load_retriever(car=car, k=k)
     except Exception as exc:
-        raise RuntimeError(f"FAISS retriever 로딩 실패: {exc}") from exc
-    finally:
-        os.chdir(previous_directory)
+        raise RuntimeError(f"{RETRIEVER_LABEL} retriever 로딩 실패: {exc}") from exc
 
     return retriever
 
@@ -112,7 +123,7 @@ def retrieve_documents(
     k: int = DEFAULT_TOP_K,
     retriever=None,
 ) -> list[Any]:
-    """질문과 차종으로 FAISS 상위 ``k``개 문서를 검색한다."""
+    """질문과 차종으로 Chroma 상위 ``k``개 문서를 검색한다."""
 
     clean_question = question.strip()
     if not clean_question:
@@ -125,11 +136,13 @@ def retrieve_documents(
 
     search_kwargs = getattr(active_retriever, "search_kwargs", None)
     if not isinstance(search_kwargs, dict):
-        raise RuntimeError("FAISS retriever의 차량 필터를 설정할 수 없습니다.")
+        raise RuntimeError("Chroma retriever의 검색 조건을 설정할 수 없습니다.")
+    search_kwargs["k"] = k
     search_kwargs["filter"] = {"car": car}
 
     try:
-        documents = list(active_retriever.invoke(clean_question))
+        with _vectorstore_working_directory():
+            documents = list(active_retriever.invoke(clean_question))
     except Exception as exc:
         raise RuntimeError(f"문서 검색 실패: {exc}") from exc
 
