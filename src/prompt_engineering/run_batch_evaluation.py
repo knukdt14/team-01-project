@@ -28,7 +28,12 @@ from batch_evaluation import (
 )
 from evaluation_metrics import DEFAULT_EVALUATION_MODEL, RAGEvaluator, format_score
 from prompt_templates import PROMPT_LABELS, PromptVariant, build_prompt
-from retrieval_adapter import DEFAULT_TOP_K, create_retriever, retrieve_documents
+from retrieval_adapter import (
+    DEFAULT_TOP_K,
+    RETRIEVER_LABEL,
+    create_retriever,
+    retrieve_documents,
+)
 from run_local_model import (
     DEFAULT_ENV_FILE,
     DEFAULT_MODEL,
@@ -212,6 +217,7 @@ def _new_checkpoint(
             question.question_id for question in sampled_questions
         ],
         "top_k": args.top_k,
+        "retriever_backend": RETRIEVER_LABEL,
         "answer_provider": args.provider,
         "answer_model": answer_model,
         "evaluation_model": args.evaluation_model,
@@ -237,6 +243,7 @@ def _validate_resume(
             question.question_id for question in sampled_questions
         ],
         "top_k": args.top_k,
+        "retriever_backend": RETRIEVER_LABEL,
         "answer_provider": args.provider,
         "answer_model": answer_model,
         "evaluation_model": args.evaluation_model,
@@ -782,7 +789,10 @@ def main() -> int:
         return 0
 
     try:
-        print(f"\nFAISS retriever 로딩: top_k={args.top_k}")
+        print(
+            f"\n{RETRIEVER_LABEL} retriever 로딩: "
+            f"top_k={args.top_k}"
+        )
         retriever = create_retriever(car=None, k=args.top_k)
         generate = load_answer_generator(
             provider=args.provider,

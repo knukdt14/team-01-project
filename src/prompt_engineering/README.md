@@ -7,7 +7,7 @@
 
 - `prompt_templates.py`: RAG 비교용 프롬프트 4종과 문맥 조립 함수
 - `preview_prompts.py`: API·모델 호출 없이 완성된 프롬프트 미리보기
-- `retrieval_adapter.py`: 팀원의 Chroma `load_retriever()`를 안전하게 연결
+- `retrieval_adapter.py`: 팀원의 Chroma DB를 영문 임시 캐시로 연결
 - `run_local_model.py`: 실제 검색 청크로 Qwen 로컬 또는 Upstage API 답변 생성
 - `evaluation_metrics.py`: 수업자료 방식의 BERTScore·RAGAS 평가
 - `batch_evaluation.py`: Excel 질문 로딩, 무작위 추출, 평균 집계, HTML 시각화
@@ -48,7 +48,7 @@ print(prompt)
 
 `vectorstore_search.py`가 반환하는 LangChain `Document` 목록도 그대로
 `documents`에 전달할 수 있습니다. 실제 실행 시에는 차량 필터를 적용해
-Chroma에서 상위 5개 청크를 검색하고, 이 청크들을 하나의 프롬프트에 함께
+Chroma에서 상위 7개 청크를 검색하고, 이 청크들을 하나의 프롬프트에 함께
 넣어 답변을 생성합니다.
 
 ## 프롬프트 종류
@@ -187,13 +187,19 @@ python -B src/prompt_engineering/test_batch_evaluation.py
 
 RTX 4070 GPU와 필수 패키지가 준비된 `TF_ENV` 환경을 사용합니다.
 
+팀원의 Chroma DB는 한글·OneDrive 경로에서 HNSW 파일을 열지 못할 수 있어,
+최초 실행 시 동일한 DB를 Windows 영문 임시 캐시에 복사한 뒤 검색합니다.
+원본 DB는 수정하지 않으며, 원본 내용이 바뀌면 새 캐시가 자동 생성됩니다.
+
 ```cmd
 conda activate TF_ENV
 chcp 65001
 python -X utf8 -B src\prompt_engineering\run_local_model.py
 ```
 
-기본 실행은 질문에서 차종을 자동으로 인식하는 제약형 대화형 모드입니다.
+기본 실행은 질문에서 차종을 자동으로 인식하고, 같은 검색 결과로 프롬프트
+4종(Context + Question / Role / Instruction·Constraint / Few-shot)의 답변을
+모두 출력하는 대화형 모드입니다.
 모델과 Chroma/bge-m3 retriever를 처음 한 번만 로드한 뒤 `질문>`에 여러 질문을
 연속으로 입력할 수 있습니다.
 
@@ -260,11 +266,13 @@ API 제공자를 사용하면 질문마다 사용량이 발생합니다.
 python -X utf8 -B src\prompt_engineering\run_local_model.py --variant constraint
 ```
 
-같은 검색 결과로 4종을 연속 비교하려면:
+같은 검색 결과로 4종을 연속 비교하는 기본 실행:
 
 ```cmd
-python -X utf8 -B src\prompt_engineering\run_local_model.py --variant all
+python -X utf8 -B src\prompt_engineering\run_local_model.py
 ```
+
+`--variant all`을 명시해도 동일하게 동작합니다.
 
 완성된 프롬프트까지 함께 출력하려면:
 

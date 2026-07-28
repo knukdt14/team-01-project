@@ -10,6 +10,7 @@ from __future__ import annotations
 import argparse
 import importlib.util
 import os
+import re
 import sys
 import time
 from pathlib import Path
@@ -32,6 +33,8 @@ DEFAULT_UPSTAGE_MODEL = "solar-pro3"
 MODEL_PROVIDERS = ("huggingface", "upstage")
 DEFAULT_ENV_FILE = Path(__file__).with_name(".env")
 EXIT_COMMANDS = {"q", "quit", "exit", "종료"}
+NO_MANUAL_ANSWER = "차량 취급설명서에서 해당 내용을 찾지 못했습니다."
+GENERAL_KNOWLEDGE_LABEL = "[LLM 일반 지식 기반 참고 답변]"
 
 
 def load_env_file(path: Path) -> None:
@@ -80,8 +83,8 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--variant",
         choices=["all", *(item.value for item in PromptVariant)],
-        default=PromptVariant.CONSTRAINT.value,
-        help="실행할 프롬프트 종류(기본값: constraint)",
+        default="all",
+        help="실행할 프롬프트 종류(기본값: all, 프롬프트 4종 모두 실행)",
     )
     parser.add_argument(
         "--question",
@@ -293,9 +296,19 @@ def load_answer_generator(
 
 
 def apply_output_guard(answer: str, variant: PromptVariant) -> str:
-    """제약형의 정보 부족 응답을 약속된 한 문구로 정규화한다."""
+    """정보 부족 문구와 일반 지식 답변의 출력 형식을 정규화한다."""
 
     clean_answer = answer.strip()
+    fallback_pattern = (
+        rf"{re.escape(NO_MANUAL_ANSWER)}\s*"
+        rf"{re.escape(GENERAL_KNOWLEDGE_LABEL)}\s*"
+    )
+    clean_answer = re.sub(
+        fallback_pattern,
+        f"{NO_MANUAL_ANSWER}\n{GENERAL_KNOWLEDGE_LABEL}\n\n",
+        clean_answer,
+    ).strip()
+
     constraint_has_no_answer = (
         "해당 정보 없음" in clean_answer
         or clean_answer == "검토 필요"
