@@ -64,7 +64,6 @@ VARIANT_COLORS = {
     PromptVariant.ROLE.value: "#7C3AED",
     PromptVariant.CONSTRAINT.value: "#059669",
     PromptVariant.FEW_SHOT.value: "#EA580C",
-    PromptVariant.VERIFICATION.value: "#DC2626",
 }
 
 
@@ -642,7 +641,7 @@ def build_html_report(
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>RAG 프롬프트 5종 평가 결과</title>
+<title>RAG 프롬프트 4종 평가 결과</title>
 <style>
 :root {{
   color-scheme: light;
@@ -741,7 +740,7 @@ td small {{ display: block; margin-top: 4px; color: var(--muted); font-size: 9px
 <main class="container">
   <section class="hero">
     <p class="eyebrow">RAG PROMPT BENCHMARK</p>
-    <h1>프롬프트 5종 성능 비교</h1>
+    <h1>프롬프트 4종 성능 비교</h1>
     <p>동일하게 무작위 추출한 질문과 동일한 top-3 검색 문맥을 사용해
     답변 품질, 근거 충실도, 검색 품질, 생성 시간을 비교한 결과입니다.</p>
   </section>

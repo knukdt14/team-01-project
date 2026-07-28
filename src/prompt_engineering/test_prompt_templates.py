@@ -79,7 +79,10 @@ class PromptTemplateTests(unittest.TestCase):
             prompt,
         )
         self.assertIn("avante_p391_0", prompt)
-        self.assertIn("제공된 참고 문서에 있는 정보만 사용하세요", prompt)
+        self.assertIn(
+            "해당 차량의 참고 문서에 있는 정보만 사용하고",
+            prompt,
+        )
         self.assertIn("[출처: (실제 차종) p.(실제 페이지)]", prompt)
         self.assertIn(
             '"차량 취급설명서에서 해당 내용을 찾지 못했습니다."만',
@@ -92,11 +95,9 @@ class PromptTemplateTests(unittest.TestCase):
             1,
         )
         self.assertIn("관련 근거가 하나라도 있으면 반드시", prompt)
-        self.assertIn('"회생제동 기능"과', prompt)
-        self.assertIn("언급이 없는 것을", prompt)
-        self.assertIn("청크 ID를 사용하지 마세요", prompt)
-        self.assertIn('"p.6"으로 표시하세요', prompt)
-        self.assertIn("관련 없는 문서의 출처를 붙이지 마세요", prompt)
+        self.assertIn("문서에 언급이 없다는 이유만으로", prompt)
+        self.assertIn("청크 ID는 출처로 사용하지 말고", prompt)
+        self.assertIn("정보 없음 답변에는 출처를 붙이지 마세요", prompt)
         self.assertIn("질문과 직접 관련된 내용만", prompt)
 
     def test_string_variant_is_supported(self):
@@ -108,10 +109,10 @@ class PromptTemplateTests(unittest.TestCase):
 
         self.assertIn("다음 참고 문서를 바탕으로", prompt)
 
-    def test_five_comparison_prompt_variants_are_available(self):
+    def test_four_comparison_prompt_variants_are_available(self):
         self.assertEqual(
             [variant.value for variant in PromptVariant],
-            ["basic", "role", "constraint", "few_shot", "verification"],
+            ["basic", "role", "constraint", "few_shot"],
         )
         self.assertEqual(
             PROMPT_LABELS[PromptVariant.BASIC],
@@ -129,20 +130,10 @@ class PromptTemplateTests(unittest.TestCase):
         self.assertIn("[예시 1: 문서에 답이 있는 경우]", prompt)
         self.assertIn("[예시 2: 문서에 답이 없는 경우]", prompt)
         self.assertIn("[실제 참고 문서]", prompt)
-        self.assertIn("예시의 차량·페이지·내용을 실제 질문의 근거로 사용하지 마세요", prompt)
-
-    def test_verification_prompt_checks_claims_before_final_answer(self):
-        prompt = build_prompt(
-            question="엔진오일 교환주기는?",
-            documents=[self.chunk_dict],
-            variant=PromptVariant.VERIFICATION,
-            car="avante",
+        self.assertIn(
+            "아래 두 예시는 판단 방법과 출력 형식만 보여줍니다.",
+            prompt,
         )
-
-        self.assertIn("각 주장, 수치, 단위, 조건", prompt)
-        self.assertIn("직접 확인되지 않는 주장", prompt)
-        self.assertIn("검증 과정이나 초안은 보여주지 말고", prompt)
-        self.assertIn("[검증을 마친 최종 답변]", prompt)
 
     def test_empty_documents_have_explicit_context(self):
         prompt = build_prompt("답이 있나요?", [], variant="constraint", car="ioniq6")
@@ -168,7 +159,10 @@ class PromptTemplateTests(unittest.TestCase):
         )
 
         self.assertIn("검토 필요", prompt)
-        self.assertIn("표 구조가 불완전할 수 있으므로", prompt)
+        self.assertIn(
+            "불완전한 표 정보는 다른 근거 없이",
+            prompt,
+        )
 
     def test_empty_question_is_rejected(self):
         with self.assertRaises(ValueError):
