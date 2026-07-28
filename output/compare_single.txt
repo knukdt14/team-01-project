@@ -1,0 +1,85 @@
+===== BEFORE (PyMuPDF 원본) =====
+타이어 에너지 소비 효율 등급
+타이어 제조사
+규격
+에너지 소비 효율 등급
+타이어 소음도*
+3
+회전 저항 (RRC)*1
+젖은 노면 제동력 (G
+)*2
+넥센
+225/55 R18 98W
+1
+3
+A
+한국
+225/55 R18 98W
+1
+3
+A
+피렐리
+245/40 R20 99W
+2
+3
+A
+타이어에 가해지는 하중에 대한 회전 저항의 비율. 1-5등급으로 구분되며, 1등급에 가까울수록 에너지 소비 효율이 높습니다.
+기준 타이어 대비 해당 타이어의 젖은 노면 제동 성능 비율. 1-5등급으로 구분되며, 1등급에 가까울수록 젖은 노면 제동력이 우수
+합니다.
+타이어 소음 허용기준 대비 해당 타이어의 소음도. AA등급과 A등급이 있으며 AA등급이 A등급 대비 소음도가 우수합니다.
+ঌইفӝ
+타이어 사이즈가 동일하더라도 에너지 소비 효율 등급 및 소음도 등급이 다를 수 있습니다.
+일부 정보는 사전 통보 없이 변경될 수 있습니다. 최신 정보는 타이어 제조사 홈페이지에서 확인할 수 있습니
+다.
+타이어 속도 등급
+속도 등급은 타이어의 최대 안전 주행 속도를 의미하며, 타이어 측면에 타이어 규격과 함께 표기되어 있습니다.
+자세한 설명은 타이어 및 휠 규격을 참고하십시오.
+속도 등급
+최대 속도
+속도 등급
+최대 속도
+S
+180 km/h(112 mph)
+V
+240 km/h(149 mph)
+T
+190 km/h(118 mph)
+W
+270 km/h(168 mph)
+H
+210 km/h(130 mph)
+Y
+300 km/h(186 mph)
+에어컨 시스템
+종류
+사양
+용량
+에어컨 냉매
+R-1234yf
+900±25 g
+냉동유
+POE
+190±10 g
+઱੄
+에어컨 시스템의 유지보수 작업 시 지정된 냉매만 사용하십시오. 이외의 냉매를 사용하는 경우 냉방 성능이 저
+하되거나 관련 부품이 심각하게 손상될 수 있습니다.
+차량 살펴보기
+54
+*1:
+*2:
+*3:
+•
+•
+
+===== AFTER (Upstage HTML) =====
+<p id='0' data-category='paragraph' style='font-size:22px'>타이어 에너지 소비 효율 등급</p>
+<br><table id='1' style='font-size:14px'><thead><tr><td rowspan="2">타이어 제조사</td><td rowspan="2">규격</td><td colspan="2">에너지 소비 효율 등급</td><td rowspan="2">타이어 소음도* 3</td></tr><tr><td>회전 저항 (RRC) *1</td><td>젖은 노면 제동력 (G ) *2</td></tr></thead><tbody><tr><td>넥센</td><td>225/55 R18 98W</td><td>1</td><td>3</td><td>A</td></tr><tr><td>한국</td><td>225/55 R18 98W</td><td>1</td><td>3</td><td>A</td></tr><tr><td>피렐리</td><td>245/40 R20 99W</td><td>2</td><td>3</td><td>A</td></tr></tbody></table>
+<br><p id='2' data-category='list' style='font-size:14px'>*1: 타이어에 가해지는 하중에 대한 회전 저항의 비율. 1-5등급으로 구분되며, 1등급에 가까울수록 에너지 소비 효율이 높습니다.<br>*2: 기준 타이어 대비 해당 타이어의 젖은 노면 제동 성능 비율. 1-5등급으로 구분되며, 1등급에 가까울수록 젖은 노면 제동력이 우수<br>합니다.<br>*3: 타이어 소음 허용기준 대비 해당 타이어의 소음도. AA등급과 A등급이 있으며 AA등급이 A등급 대비 소음도가 우수합니다.</p>
+<br><h1 id='3' style='font-size:20px'>알아두기</h1>
+<p id='4' data-category='list' style='font-size:16px'>· 타이어 사이즈가 동일하더라도 에너지 소비 효율 등급 및 소음도 등급이 다를 수 있습니다.<br>· 일부 정보는 사전 통보 없이 변경될 수 있습니다. 최신 정보는 타이어 제조사 홈페이지에서 확인할 수 있습니<br>다.</p>
+<h1 id='5' style='font-size:22px'>타이어 속도 등급</h1>
+<br><p id='6' data-category='paragraph' style='font-size:18px'>속도 등급은 타이어의 최대 안전 주행 속도를 의미하며, 타이어 측면에 타이어 규격과 함께 표기되어 있습니다.<br>자세한 설명은 타이어 및 휠 규격을 참고하십시오.</p>
+<br><table id='7' style='font-size:16px'><thead><tr><td>속도 등급</td><td>최대 속도</td><td>속도 등급</td><td>최대 속도</td></tr></thead><tbody><tr><td>S</td><td>180 km/h(112 mph)</td><td>V</td><td>240 km/h(149 mph)</td></tr><tr><td>T</td><td>190 km/h(118 mph)</td><td>W</td><td>270 km/h(168 mph)</td></tr><tr><td>H</td><td>210 km/h(130 mph)</td><td></td><td>300 km/h(186 mph)</td></tr></tbody></table>
+<br><h1 id='8' style='font-size:22px'>에어컨 시스템</h1>
+<br><table id='9' style='font-size:18px'><thead></thead><tbody><tr><td><table><thead><tr><td>종류</td><td>사양</td><td>용량</td></tr></thead><tbody><tr><td>에어컨 냉매</td><td>R-1234yf</td><td>900±25 g</td></tr><tr><td>냉동유</td><td>POE</td><td>190±10 g</td></tr></tbody></table> <figure><img alt="" data-coord="top-left:(140,1884); bottom-right:(187,1939)" /></figure> 주의</td></tr><tr><td>에어컨 시스템의 유지보수 작업 시 지정된 냉매만 사용하십시오. 이외의 냉매를 사용하는 경우 냉방 성능이 저 하되거나 관련 부품이 심각하게 손상될 수 있습니다.</td></tr></tbody></table>
+<footer id='10' style='font-size:20px'>54 차량 살펴보기</footer>
