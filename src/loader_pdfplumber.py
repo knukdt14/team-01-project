@@ -42,8 +42,7 @@ def get_car_name(filename):
 
 
 def get_rotation(page):
-    """pdfplumber 버전에 따라 회전 속성 위치가 달라서 두 방법 모두 시도"""
-    rot = getattr(page, "rotation", None)        # 신버전: page.rotation
+    rot = getattr(page, "rotation", None)    # page에 rotation이라는 속성 있으면 가져오기
     if rot is None:
         rot = page.page_obj.get("/Rotate", 0)    # 구버전: PDF 객체에서 직접
     return int(rot or 0)
