@@ -1,10 +1,10 @@
-"""기본형·역할형·제약형 프롬프트를 터미널에서 미리 확인한다."""
+"""비교 실험용 프롬프트 5종을 터미널에서 미리 확인한다."""
 
 from __future__ import annotations
 
 import argparse
 
-from prompt_templates import PromptVariant, build_prompt
+from prompt_templates import PROMPT_LABELS, PromptVariant, build_prompt
 
 
 SAMPLE_DOCUMENTS = [
@@ -30,7 +30,7 @@ SAMPLE_DOCUMENTS = [
 
 
 def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="RAG 프롬프트 3종 미리보기")
+    parser = argparse.ArgumentParser(description="RAG 프롬프트 5종 미리보기")
     parser.add_argument(
         "--variant",
         choices=["all", *(item.value for item in PromptVariant)],
@@ -67,7 +67,7 @@ def main() -> None:
             variant=variant,
             car=args.car,
         )
-        title = f" {variant.value.upper()} "
+        title = f" {PROMPT_LABELS[variant]} "
         print(f"\n{title:=^76}")
         print(prompt)
 
