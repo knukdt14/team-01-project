@@ -40,7 +40,7 @@ CAR_ALIASES = {
     "투싼": "tucson",
     "tucson": "tucson",
 }
-DEFAULT_TOP_K = 5
+DEFAULT_TOP_K = 10
 RETRIEVER_LABEL = "Chroma/bge-m3"
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
