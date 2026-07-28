@@ -15,6 +15,8 @@
 # 실행: python embedding_finegrained_eval.py
 
 import json
+from pathlib import Path
+
 import numpy as np
 import torch
 import transformers.modeling_utils as _hf_modeling_utils
@@ -34,7 +36,8 @@ def _from_pretrained_dtype_compat(cls, *args, **kwargs):
 
 _hf_modeling_utils.PreTrainedModel.from_pretrained = classmethod(_from_pretrained_dtype_compat)
 
-CHUNKS_PATH = "../../output/chunks_llmhybrid.json"
+PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
+CHUNKS_PATH = PROJECT_ROOT / "output" / "chunks_llmhybrid.json"   # 한이가 넘겨준 파일/
 TOP_K = 10
 CANDIDATE_K = 50  # 1차 dense로 이만큼 후보를 뽑은 뒤 cross-encoder로 재정렬
 MAX_LEN = 512   # 512 토큰이면 충분

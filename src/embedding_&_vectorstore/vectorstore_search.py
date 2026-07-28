@@ -8,6 +8,7 @@ import os
 import shutil
 import time
 from collections import Counter
+from pathlib import Path
 
 import torch
 from langchain_core.documents import Document
@@ -15,15 +16,19 @@ from langchain_huggingface import HuggingFaceEmbeddings
 from langchain_community.vectorstores import FAISS
 from langchain_chroma import Chroma
 
-CHUNKS_PATH = "../../output/chunks_llmhybrid.json"
+# 실행 위치(cwd)와 무관하게 항상 같은 곳을 보도록 스크립트 위치 기준 절대경로로 고정
+SCRIPT_DIR = Path(__file__).resolve().parent
+PROJECT_ROOT = SCRIPT_DIR.parent.parent
+
+CHUNKS_PATH = PROJECT_ROOT / "output" / "chunks_llmhybrid.json"
 EMBED_MODEL = "BAAI/bge-m3"   # 실험1에서 고른 모델 (차원 1024)
 TOP_K = 10
 CARS = ["avante", "avante_hev", "ioniq6", "nexo", "tucson"]   # 차종 5종
 K_SHOW = 10   # 필터 없을 때 차종이 얼마나 섞이는지 볼 상위 개수
 
 # 저장 경로 (bge-m3는 차원이 1024라 기존 768짜리 인덱스와 호환 안 됨 -> 폴더 분리)
-FAISS_DIR = "faiss_index_bgem3"
-CHROMA_DIR = "chroma_db_bgem3"
+FAISS_DIR = SCRIPT_DIR / "faiss_index_bgem3"
+CHROMA_DIR = SCRIPT_DIR / "chroma_db_bgem3"
 COLLECTION_NAME = "car_manual"   # Chroma 컬렉션 이름 (load 할 때 똑같이 줘야 함)
 
 # GPU 설정
@@ -111,7 +116,7 @@ def build_faiss(docs, embeddings):
     t0 = time.time()
     db = FAISS.from_documents(docs, embeddings)
     build_time = time.time() - t0
-    db.save_local(FAISS_DIR)
+    db.save_local(str(FAISS_DIR))
     return db, build_time
 
 
@@ -122,7 +127,7 @@ def build_chroma(docs, embeddings):
     t0 = time.time()
     db = Chroma.from_documents(docs, embeddings,
                                collection_name=COLLECTION_NAME,
-                               persist_directory=CHROMA_DIR)
+                               persist_directory=str(CHROMA_DIR))
     build_time = time.time() - t0   # persist_directory 주면 자동 저장됨
     return db, build_time
 
@@ -132,7 +137,7 @@ def load_retriever(car=None, k=TOP_K):
     # 팀원은 이 함수만 부르면 됨. car 를 주면 그 차종만 검색되게 필터가 걸림
     embeddings = make_embeddings()
     db = Chroma(collection_name=COLLECTION_NAME,
-                persist_directory=CHROMA_DIR,
+                persist_directory=str(CHROMA_DIR),
                 embedding_function=embeddings)
     search_kwargs = {"k": k}
     if car is not None:
@@ -191,11 +196,11 @@ if __name__ == "__main__":
 
     print("\nFAISS 만드는 중... (비교용)")
     faiss_db, faiss_build = build_faiss(docs, embeddings)
-    print("FAISS 생성시간 = " + str(round(faiss_build, 1)) + "초  저장위치=" + FAISS_DIR)
+    print("FAISS 생성시간 = " + str(round(faiss_build, 1)) + "초  저장위치=" + str(FAISS_DIR))
 
     print("\nChroma 만드는 중... (최종 선택)")
     chroma_db, chroma_build = build_chroma(docs, embeddings)
-    print("Chroma 생성시간 = " + str(round(chroma_build, 1)) + "초  저장위치=" + CHROMA_DIR)
+    print("Chroma 생성시간 = " + str(round(chroma_build, 1)) + "초  저장위치=" + str(CHROMA_DIR))
 
     # 검색 속도 비교 (질문 1건 검색에 걸리는 평균 시간)
     faiss_search = avg_search_time(faiss_db, is_faiss=True)
