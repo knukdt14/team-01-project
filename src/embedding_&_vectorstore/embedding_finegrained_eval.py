@@ -36,7 +36,8 @@ _hf_modeling_utils.PreTrainedModel.from_pretrained = classmethod(_from_pretraine
 
 CHUNKS_PATH = "../../output/chunks_llmhybrid.json"
 TOP_K = 10
-MAX_LEN = 512   # 청크가 최대 256자라 여유 있게 512 토큰이면 충분
+CANDIDATE_K = 50  # 1차 dense로 이만큼 후보를 뽑은 뒤 cross-encoder로 재정렬
+MAX_LEN = 512   # 512 토큰이면 충분
 
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 
@@ -91,6 +92,12 @@ def build_model():
     return BGEM3FlagModel("BAAI/bge-m3", use_fp16=(DEVICE == "cuda"))
 
 
+def build_reranker():
+    from FlagEmbedding import FlagReranker
+    print("bge-reranker-v2-m3 로딩... (device=" + DEVICE + ")")
+    return FlagReranker("BAAI/bge-reranker-v2-m3", use_fp16=(DEVICE == "cuda"))
+
+
 def encode_dense(model, texts, batch_size=12):
     # dense_vecs 는 이미 정규화되어 나옴 -> 내적이 곧 코사인 유사도
     out = model.encode(
@@ -104,7 +111,8 @@ def encode_dense(model, texts, batch_size=12):
     return np.asarray(out["dense_vecs"])
 
 
-def evaluate_item(car, item_label, keyword, query, texts, cars, pages, doc_dense, model):
+def evaluate_item(car, item_label, keyword, query, texts, cars, pages, doc_dense, model,
+                   reranker=None, candidate_k=CANDIDATE_K):
     idx_in_car = np.where(cars == car)[0]
     car_texts = [texts[i] for i in idx_in_car]
 
@@ -117,22 +125,46 @@ def evaluate_item(car, item_label, keyword, query, texts, cars, pages, doc_dense
     q_dense = encode_dense(model, [query])[0]
     car_dense = doc_dense[idx_in_car]           # 차종 필터 시뮬레이션 (car_dense만 비교)
     sims = car_dense @ q_dense
-    order = np.argsort(-sims)                    # local index, 유사도 내림차순
+    order = np.argsort(-sims)                    # local index, dense 유사도 내림차순
 
     rank_of_local = {local_idx: rank for rank, local_idx in enumerate(order, start=1)}
-    best_rank = min(rank_of_local[i] for i in gt_local)
-    hit10 = best_rank <= TOP_K
-    top10_pages = [pages[idx_in_car[i]] for i in order[:TOP_K]]
+    best_rank_dense = min(rank_of_local[i] for i in gt_local)
+    hit10_dense = best_rank_dense <= TOP_K
+    top10_pages_dense = [pages[idx_in_car[i]] for i in order[:TOP_K]]
 
-    return {
+    result = {
         "car": car,
         "item": item_label,
         "query": query,
         "gt_chunks": len(gt_local),
-        "best_rank": best_rank,
-        "hit10": hit10,
-        "top10_pages": top10_pages,
+        "best_rank_dense": best_rank_dense,
+        "hit10_dense": hit10_dense,
+        "top10_pages_dense": top10_pages_dense,
     }
+
+    if reranker is not None:
+        # 1차: dense로 top-candidate_k 후보만 추리고, 그 안에서만 cross-encoder로 재정렬
+        # (전체 청크에 cross-encoder를 돌리면 너무 느려서 후보 압축이 필수)
+        cand_local = order[:candidate_k]
+        pairs = [[query, car_texts[i]] for i in cand_local]
+        rerank_scores = np.asarray(reranker.compute_score(pairs, normalize=True))
+        rerank_order = np.argsort(-rerank_scores)                # 후보 내부 순위(0-base)
+        reranked_local = [cand_local[i] for i in rerank_order]   # 재정렬된 local index 목록
+
+        rerank_rank_of_local = {local_idx: rank for rank, local_idx in enumerate(reranked_local, start=1)}
+        gt_in_candidates = [i for i in gt_local if i in rerank_rank_of_local]
+        # 1차 후보(top candidate_k)에 정답이 아예 없으면 rerank로도 못 살림 -> None
+        best_rank_rerank = min(rerank_rank_of_local[i] for i in gt_in_candidates) if gt_in_candidates else None
+        hit10_rerank = best_rank_rerank is not None and best_rank_rerank <= TOP_K
+        top10_pages_rerank = [pages[idx_in_car[i]] for i in reranked_local[:TOP_K]]
+
+        result.update({
+            "best_rank_rerank": best_rank_rerank,
+            "hit10_rerank": hit10_rerank,
+            "top10_pages_rerank": top10_pages_rerank,
+        })
+
+    return result
 
 
 def main():
@@ -141,38 +173,43 @@ def main():
     print(f"청크 개수: {len(texts)}")
 
     model = build_model()
+    reranker = build_reranker()
 
     print(f"전체 청크 dense 임베딩 중... ({len(texts)}개, max_length={MAX_LEN})")
     doc_dense = encode_dense(model, texts, batch_size=12)
 
     results = []
-    print("\n===== 세부 항목별 top10 검증 =====")
+    print("\n===== 세부 항목별 top10 검증 (dense 단독 vs dense→rerank) =====")
     for car, item_label, keyword, query in TEST_ITEMS:
-        r = evaluate_item(car, item_label, keyword, query, texts, cars, pages, doc_dense, model)
+        r = evaluate_item(car, item_label, keyword, query, texts, cars, pages, doc_dense, model,
+                           reranker=reranker)
         if r is None:
             continue
         results.append(r)
-        mark = "O" if r["hit10"] else "X"
-        print(f"[{mark}] {r['car']:12s} {r['item']:10s} 정답청크수={r['gt_chunks']:3d}  "
-              f"최상위 정답 순위={r['best_rank']:4d}  질문='{r['query']}'")
-        if not r["hit10"]:
-            print(f"      -> top10 페이지={r['top10_pages']}")
+        mark_d = "O" if r["hit10_dense"] else "X"
+        mark_r = "O" if r["hit10_rerank"] else "X"
+        print(f"[dense {mark_d} / rerank {mark_r}] {r['car']:12s} {r['item']:10s} 정답청크수={r['gt_chunks']:3d}  "
+              f"dense순위={r['best_rank_dense']:4d}  rerank순위={r['best_rank_rerank']}  질문='{r['query']}'")
+        if not r["hit10_rerank"]:
+            print(f"      -> rerank top10 페이지={r['top10_pages_rerank']}")
 
     if not results:
         print("검증할 항목이 없음 (키워드가 데이터에 하나도 없음)")
         return
 
-    hit_count = sum(1 for r in results if r["hit10"])
-    recall_at_10 = hit_count / len(results)
+    hit_dense = sum(1 for r in results if r["hit10_dense"])
+    hit_rerank = sum(1 for r in results if r["hit10_rerank"])
+    n = len(results)
 
     print("\n===== 요약 =====")
-    print(f"전체 {len(results)}개 항목 중 top10 적중 {hit_count}개  recall@10 = {round(recall_at_10, 3)}")
+    print(f"dense 단독      : {n}개 중 적중 {hit_dense}개  recall@10 = {round(hit_dense / n, 3)}")
+    print(f"dense→rerank    : {n}개 중 적중 {hit_rerank}개  recall@10 = {round(hit_rerank / n, 3)}")
 
-    misses = [r for r in results if not r["hit10"]]
+    misses = [r for r in results if not r["hit10_rerank"]]
     if misses:
-        print("\n미적중 항목 (임베딩이 못 찾은 세부 항목):")
+        print("\n미적중 항목 (rerank까지 거쳐도 top10 밖):")
         for r in misses:
-            print(f"  {r['car']:12s} {r['item']:10s} 최상위 정답 순위={r['best_rank']}")
+            print(f"  {r['car']:12s} {r['item']:10s} dense순위={r['best_rank_dense']}  rerank순위={r['best_rank_rerank']}")
 
 
 if __name__ == "__main__":
