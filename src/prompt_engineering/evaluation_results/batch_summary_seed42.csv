@@ -1,0 +1,6 @@
+﻿variant,label,BERTScore Precision,BERTScore Recall,BERTScore F1,Faithfulness,Answer Relevancy,Context Precision,Context Recall,응답 생성 시간(초)
+basic,CONTEXT + QUESTION,0.647,0.763,0.699,0.587,0.835,0.767,0.727,12.90
+role,ROLE,0.713,0.751,0.729,0.401,0.555,0.767,0.727,5.15
+constraint,INSTRUCTION / CONSTRAINT,0.686,0.759,0.719,0.619,0.680,0.767,0.727,7.42
+few_shot,FEW-SHOT,0.706,0.736,0.718,0.383,0.424,0.767,0.727,4.63
+verification,CHAIN-OF-VERIFICATION,0.702,0.709,0.703,0.328,0.354,0.767,0.727,3.91
