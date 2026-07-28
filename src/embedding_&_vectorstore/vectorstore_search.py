@@ -17,7 +17,7 @@ from langchain_chroma import Chroma
 
 CHUNKS_PATH = "../../output/chunks_llmhybrid.json"
 EMBED_MODEL = "BAAI/bge-m3"   # 실험1에서 고른 모델 (차원 1024)
-TOP_K = 5
+TOP_K = 10
 CARS = ["avante", "avante_hev", "ioniq6", "nexo", "tucson"]   # 차종 5종
 K_SHOW = 10   # 필터 없을 때 차종이 얼마나 섞이는지 볼 상위 개수
 
