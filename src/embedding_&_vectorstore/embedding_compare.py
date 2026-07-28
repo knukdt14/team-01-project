@@ -67,7 +67,7 @@ def run_one_model(name, model_path, texts, cars, is_e5=False):
 
     # 1. 모델 로딩 시간
     t0 = time.time()
-    model = SentenceTransformer(model_path)
+    model = SentenceTransformer(model_path, device="cuda")
     load_time = time.time() - t0
     print("로딩 완료  로딩시간=" + str(round(load_time, 1)) + "초")
 
@@ -161,8 +161,8 @@ if __name__ == "__main__":
 
     # 메모리가 부족하면 아래 3줄 중 2개를 주석 처리하고 하나씩 실행해도 됨
     # 결과가 파일로 저장되니까 마지막 요약(print_summary)은 돌린 모델만 모아서 보여줌
-    # run_one_model("ko-sbert", "jhgan/ko-sbert-nli", texts, cars)
-    # run_one_model("bge-m3", "BAAI/bge-m3", texts, cars)
+    run_one_model("ko-sbert", "jhgan/ko-sbert-nli", texts, cars)
+    run_one_model("bge-m3", "BAAI/bge-m3", texts, cars)
     run_one_model("multilingual-e5", "intfloat/multilingual-e5-base", texts, cars, is_e5=True)
 
     print_summary()

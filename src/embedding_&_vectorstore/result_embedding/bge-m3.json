@@ -1,10 +1,10 @@
 {
   "name": "bge-m3",
   "dim": 1024,
-  "load_time": 5.32,
-  "embed_time": 102.12,
-  "query_ms": 57.51,
-  "top1_acc": 0.8,
-  "precision": 0.6,
-  "num_chunks": 300
+  "load_time": 6.85,
+  "embed_time": 693.78,
+  "query_ms": 21.03,
+  "top1_acc": 0.933,
+  "precision": 0.953,
+  "num_chunks": 12716
 }
