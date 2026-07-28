@@ -1,10 +1,10 @@
 {
   "name": "ko-sbert",
   "dim": 768,
-  "load_time": 4.26,
-  "embed_time": 11.18,
-  "query_ms": 20.09,
-  "top1_acc": 0.8,
-  "precision": 0.513,
-  "num_chunks": 300
+  "load_time": 4.99,
+  "embed_time": 39.38,
+  "query_ms": 11.96,
+  "top1_acc": 1.0,
+  "precision": 0.907,
+  "num_chunks": 12716
 }
