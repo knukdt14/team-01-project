@@ -5,13 +5,13 @@
 
 ## 구성
 
-- `prompt_templates.py`: RAG 비교용 프롬프트 5종과 문맥 조립 함수
+- `prompt_templates.py`: RAG 비교용 프롬프트 4종과 문맥 조립 함수
 - `preview_prompts.py`: API·모델 호출 없이 완성된 프롬프트 미리보기
-- `retrieval_adapter.py`: 팀원의 FAISS `load_retriever()`를 안전하게 연결
+- `retrieval_adapter.py`: 팀원의 Chroma `load_retriever()`를 안전하게 연결
 - `run_local_model.py`: 실제 검색 청크로 Qwen 로컬 또는 Upstage API 답변 생성
 - `evaluation_metrics.py`: 수업자료 방식의 BERTScore·RAGAS 평가
 - `batch_evaluation.py`: Excel 질문 로딩, 무작위 추출, 평균 집계, HTML 시각화
-- `run_batch_evaluation.py`: 질문 25개 × 프롬프트 5종 일괄 평가 실행
+- `run_batch_evaluation.py`: 질문 25개 × 프롬프트 4종 일괄 평가 실행
 - `test_prompt_templates.py`: 딕셔너리 청크와 LangChain `Document` 호환 테스트
 - `test_batch_evaluation.py`: 표본 추출·평균 집계·HTML 보고서 테스트
 
@@ -48,7 +48,7 @@ print(prompt)
 
 `vectorstore_search.py`가 반환하는 LangChain `Document` 목록도 그대로
 `documents`에 전달할 수 있습니다. 실제 실행 시에는 차량 필터를 적용해
-FAISS에서 상위 3개 청크를 검색하고, 이 청크들을 하나의 프롬프트에 함께
+Chroma에서 상위 5개 청크를 검색하고, 이 청크들을 하나의 프롬프트에 함께
 넣어 답변을 생성합니다.
 
 ## 프롬프트 종류
@@ -59,7 +59,6 @@ FAISS에서 상위 3개 청크를 검색하고, 이 청크들을 하나의 프�
 | `role` | Role Prompt | 자동차 정비 전문가 역할의 영향 확인 |
 | `constraint` | Instruction Prompt | 추측 금지와 출력 규칙의 영향 확인 |
 | `few_shot` | Few-shot Prompt | 근거 있음·없음 예시 2개의 영향 확인 |
-| `verification` | Chain-of-Verification | 초안의 주장과 근거를 재검증하는 영향 확인 |
 
 프롬프트 성능을 비교할 때는 검색 결과, LLM, 생성 설정, 질문을 동일하게
 유지하고 `variant`만 변경해야 합니다.
@@ -80,7 +79,6 @@ FAISS에서 상위 3개 청크를 검색하고, 이 청크들을 하나의 프�
 | Role | 이해하기 쉬운 답변 생성 | 문서 밖 답변 생성 | 표현은 자연스럽지만 근거 제약이 약함 |
 | Instruction / Constraint | 근거와 출처 제시 | `해당 정보 없음` | 짧고 안정적이며 출력 가드가 적용됨 |
 | Few-shot | `해당 정보 없음` | `해당 정보 없음` | 할루시네이션은 줄지만 과도하게 보수적임 |
-| Chain-of-Verification | 근거와 출처 제시 | `해당 정보 없음` | 이번 비교에서 근거성과 정보 부족 판단의 균형이 가장 좋음 |
 
 표본 질문 2개의 정성 비교이므로 일반적인 성능 순위로 단정할 수는 없습니다.
 정량 평가 시에는 여러 질문의 정확성, 출처 일치율, 정보 부족 판단률을 함께
@@ -103,13 +101,13 @@ BERTScore와 Context Precision/Recall을 계산하려면 사람이 작성한 모
 Upstage API 사용량이 발생합니다. 기본 실행에서는 유료 평가를 수행하지 않고
 응답 생성 시간만 표시합니다.
 
-프롬프트 5종이 같은 검색 결과를 공유하므로 Faithfulness와 Answer Relevancy는
+프롬프트 4종이 같은 검색 결과를 공유하므로 Faithfulness와 Answer Relevancy는
 답변별로 계산하고, Context Precision과 Context Recall은 질문당 한 번만 계산해
 모든 프롬프트 결과에 공통으로 표시합니다.
 Upstage가 한 요청당 `n=1`만 허용하므로 Answer Relevancy의 질문 후보 수도
 1개로 설정해 Solar 호환성과 API 사용량을 함께 맞춥니다.
 
-단건 질문의 프롬프트 5종을 평가하려면:
+단건 질문의 프롬프트 4종을 평가하려면:
 
 ```cmd
 python -X utf8 -B src\prompt_engineering\run_local_model.py --variant all --question "투싼의 엔진 경고등이 켜졌어" --evaluate --reference-answer "엔진 경고등이 3초 후에도 계속 켜져 있으면 엔진 제어 장치나 연료 공급 장치 이상일 수 있으므로 하이테크센터나 블루핸즈에서 점검받아야 합니다."
@@ -127,9 +125,9 @@ python -X utf8 -B src\prompt_engineering\run_local_model.py --variant all --eval
 ## 질문 25개 일괄 평가와 시각화
 
 `data/RAG_Question_100.xlsx`에서 질문 25개를 단순 무작위 추출한 뒤, 같은
-질문과 같은 top-3 검색 결과로 프롬프트 5종의 답변을 생성하고 평가합니다.
+질문과 같은 top-3 검색 결과로 프롬프트 4종의 답변을 생성하고 평가합니다.
 기본 random seed는 `42`이므로 같은 데이터셋에서는 항상 같은 질문이
-선정됩니다. 각 질문의 차량 열을 FAISS 차종 필터로 사용하므로 대화형 모드의
+선정됩니다. 각 질문의 차량 열을 Chroma 차종 필터로 사용하므로 대화형 모드의
 이전 차량 상태는 일괄 평가에 영향을 주지 않습니다.
 
 먼저 모델과 API를 호출하지 않고 선정 질문만 확인할 수 있습니다.
@@ -144,7 +142,7 @@ python -X utf8 -B src\prompt_engineering\run_batch_evaluation.py --dry-run
 python -X utf8 -B src\prompt_engineering\run_batch_evaluation.py
 ```
 
-질문 25개 × 프롬프트 5종으로 Qwen 답변 125개를 생성합니다. BERTScore는
+질문 25개 × 프롬프트 4종으로 Qwen 답변 100개를 생성합니다. BERTScore는
 로컬에서 계산하고 Faithfulness, Answer Relevancy, Context Precision,
 Context Recall은 `.env`의 `UPSTAGE_API_KEY`를 이용해 Solar로 평가하므로
 API 사용량과 긴 실행 시간이 발생합니다. 실행 전에 계속할지 확인하며,
@@ -167,7 +165,7 @@ python -X utf8 -B src\prompt_engineering\run_batch_evaluation.py --repair-missin
 기본 결과는 `src/prompt_engineering/evaluation_results/`에 저장됩니다.
 
 - `batch_evaluation_seed42.json`: 선정 질문, 검색 문맥, 답변, 개별 지표
-- `batch_details_seed42.csv`: 질문 25개 × 프롬프트 5종의 상세 결과
+- `batch_details_seed42.csv`: 질문 25개 × 프롬프트 4종의 상세 결과
 - `batch_summary_seed42.csv`: 프롬프트별 지표 평균
 - `batch_report_seed42.html`: 평균 지표 막대그래프와 비교표
 
@@ -196,7 +194,7 @@ python -X utf8 -B src\prompt_engineering\run_local_model.py
 ```
 
 기본 실행은 질문에서 차종을 자동으로 인식하는 제약형 대화형 모드입니다.
-모델과 FAISS retriever를 처음 한 번만 로드한 뒤 `질문>`에 여러 질문을
+모델과 Chroma/bge-m3 retriever를 처음 한 번만 로드한 뒤 `질문>`에 여러 질문을
 연속으로 입력할 수 있습니다.
 
 ```text
@@ -253,7 +251,7 @@ Upstage 기본 모델은 `solar-pro3`이며 다른 모델 ID는 `--model`로 지
 API 제공자를 사용하면 질문마다 사용량이 발생합니다.
 
 최초 실행 시 `Qwen/Qwen2.5-3B-Instruct` 모델을 Hugging Face 캐시에
-다운로드합니다. 검색에 사용하는 `intfloat/multilingual-e5-base`도 캐시에
+다운로드합니다. 검색에 사용하는 `BAAI/bge-m3`도 캐시에
 없으면 최초 한 번 다운로드합니다. 이후에는 캐시된 모델을 사용합니다.
 
 제약형 프롬프트 하나만 실행하려면:
@@ -262,7 +260,7 @@ API 제공자를 사용하면 질문마다 사용량이 발생합니다.
 python -X utf8 -B src\prompt_engineering\run_local_model.py --variant constraint
 ```
 
-같은 검색 결과로 5종을 연속 비교하려면:
+같은 검색 결과로 4종을 연속 비교하려면:
 
 ```cmd
 python -X utf8 -B src\prompt_engineering\run_local_model.py --variant all

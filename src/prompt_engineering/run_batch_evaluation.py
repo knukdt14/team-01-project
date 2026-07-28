@@ -1,4 +1,4 @@
-"""RAG 질문 100개 중 25개를 뽑아 프롬프트 5종을 일괄 평가한다."""
+"""RAG 질문 100개 중 25개를 뽑아 프롬프트 4종을 일괄 평가한다."""
 
 from __future__ import annotations
 
@@ -51,7 +51,7 @@ def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description=(
             "RAG_Question_100.xlsx에서 같은 질문 표본을 뽑아 "
-            "프롬프트 5종의 평균 성능을 비교"
+            "프롬프트 4종의 평균 성능을 비교"
         )
     )
     parser.add_argument(

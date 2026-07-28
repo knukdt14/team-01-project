@@ -1,4 +1,4 @@
-"""비교 실험용 프롬프트 5종을 터미널에서 미리 확인한다."""
+"""비교 실험용 프롬프트 4종을 터미널에서 미리 확인한다."""
 
 from __future__ import annotations
 
@@ -30,7 +30,7 @@ SAMPLE_DOCUMENTS = [
 
 
 def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="RAG 프롬프트 5종 미리보기")
+    parser = argparse.ArgumentParser(description="RAG 프롬프트 4종 미리보기")
     parser.add_argument(
         "--variant",
         choices=["all", *(item.value for item in PromptVariant)],

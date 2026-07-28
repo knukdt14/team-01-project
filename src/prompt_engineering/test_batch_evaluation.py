@@ -93,8 +93,8 @@ class BatchEvaluationTests(unittest.TestCase):
             0.6,
         )
         self.assertAlmostEqual(
-            summary["verification"]["bertscore_f1"]["mean"],
-            0.64,
+            summary["few_shot"]["bertscore_f1"]["mean"],
+            0.63,
         )
         self.assertEqual(
             summary["role"]["faithfulness"]["valid_count"],
@@ -136,7 +136,7 @@ class BatchEvaluationTests(unittest.TestCase):
             },
         )
 
-        self.assertIn("프롬프트 5종 성능 비교", report)
+        self.assertIn("프롬프트 4종 성능 비교", report)
         self.assertIn("BERTScore F1", report)
         self.assertIn("응답 생성 시간", report)
         self.assertIn("질문 1", report)
