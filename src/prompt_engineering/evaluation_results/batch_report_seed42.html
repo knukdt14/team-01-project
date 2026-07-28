@@ -1,0 +1,156 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>RAG 프롬프트 5종 평가 결과</title>
+<style>
+:root {
+  color-scheme: light;
+  --ink: #172033;
+  --muted: #637083;
+  --line: #e4e9f0;
+  --surface: #ffffff;
+  --canvas: #f4f7fb;
+  --accent: #0f766e;
+}
+* { box-sizing: border-box; }
+body {
+  margin: 0;
+  color: var(--ink);
+  background: var(--canvas);
+  font-family: "Malgun Gothic", "Apple SD Gothic Neo", sans-serif;
+}
+.container { max-width: 1480px; margin: 0 auto; padding: 40px 24px 64px; }
+.hero {
+  padding: 34px;
+  border-radius: 22px;
+  color: #fff;
+  background: linear-gradient(135deg, #14213d 0%, #0f766e 100%);
+  box-shadow: 0 18px 45px rgba(20, 33, 61, .18);
+}
+.eyebrow { margin: 0 0 10px; opacity: .76; font-size: 13px; letter-spacing: .12em; }
+h1 { margin: 0; font-size: clamp(28px, 4vw, 46px); }
+.hero p { max-width: 820px; margin: 14px 0 0; line-height: 1.65; opacity: .88; }
+.kpis {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 14px;
+  margin: 20px 0;
+}
+.kpi, .panel, .metric-card {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  box-shadow: 0 7px 24px rgba(28, 42, 66, .06);
+}
+.kpi { padding: 18px 20px; }
+.kpi strong { display: block; font-size: 22px; }
+.kpi span { color: var(--muted); font-size: 12px; }
+.panel { margin-top: 18px; padding: 24px; }
+.panel h2 { margin: 0 0 8px; font-size: 21px; }
+.note { margin: 5px 0 18px; color: var(--muted); font-size: 13px; line-height: 1.55; }
+.legend { display: flex; flex-wrap: wrap; gap: 12px 20px; margin: 16px 0 20px; }
+.legend-item { display: inline-flex; align-items: center; gap: 7px; font-size: 12px; }
+.legend-item i { width: 11px; height: 11px; border-radius: 3px; }
+.metrics-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+.metric-card { padding: 18px; box-shadow: none; }
+.metric-card h3 { margin: 0 0 15px; font-size: 15px; }
+.metric-card.time { margin-top: 14px; }
+.bar-row {
+  display: grid;
+  grid-template-columns: 155px minmax(120px, 1fr) 92px;
+  gap: 10px;
+  align-items: center;
+  min-height: 30px;
+}
+.bar-label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 11px; }
+.track { height: 11px; overflow: hidden; border-radius: 999px; background: #edf1f6; }
+.bar { height: 100%; min-width: 2px; border-radius: inherit; }
+.bar-value { font-variant-numeric: tabular-nums; font-size: 12px; }
+.best {
+  display: inline-block;
+  margin-left: 5px;
+  padding: 2px 5px;
+  color: #0f766e;
+  background: #dff7f1;
+  border-radius: 999px;
+  font-size: 8px;
+  font-weight: 700;
+}
+.table-wrap { overflow-x: auto; }
+table { width: 100%; border-collapse: collapse; font-size: 12px; }
+th, td { padding: 11px 10px; border-bottom: 1px solid var(--line); text-align: center; }
+thead th { position: sticky; top: 0; color: #fff; background: #25324a; }
+.variant-name { min-width: 160px; text-align: left; }
+td small { display: block; margin-top: 4px; color: var(--muted); font-size: 9px; }
+.best-cell { color: #08766e; background: #effbf8; font-weight: 700; }
+.questions th:last-child, .questions td:last-child { min-width: 420px; text-align: left; }
+.questions td { vertical-align: top; }
+.footer { margin-top: 20px; color: var(--muted); text-align: right; font-size: 11px; }
+@media (max-width: 900px) {
+  .kpis, .metrics-grid { grid-template-columns: 1fr; }
+  .bar-row { grid-template-columns: 120px minmax(100px, 1fr) 82px; }
+}
+</style>
+</head>
+<body>
+<main class="container">
+  <section class="hero">
+    <p class="eyebrow">RAG PROMPT BENCHMARK</p>
+    <h1>프롬프트 5종 성능 비교</h1>
+    <p>동일하게 무작위 추출한 질문과 동일한 top-3 검색 문맥을 사용해
+    답변 품질, 근거 충실도, 검색 품질, 생성 시간을 비교한 결과입니다.</p>
+  </section>
+
+  <section class="kpis">
+    <article class="kpi"><strong>25</strong><span>무작위 질문 수</span></article>
+    <article class="kpi"><strong>5</strong><span>비교 프롬프트 수</span></article>
+    <article class="kpi"><strong>42</strong><span>재현용 random seed</span></article>
+    <article class="kpi"><strong>25</strong><span>평가 완료 질문 수</span></article>
+  </section>
+
+  <section class="panel">
+    <h2>평균 품질 지표</h2>
+    <p class="note">모든 품질 지표는 0~1 범위이며 높을수록 좋습니다.
+    Context Precision과 Context Recall은 프롬프트 적용 전 동일한 검색 결과를
+    평가하므로 5개 기법에서 같은 값이 나오는 것이 정상입니다.</p>
+    <div class="legend"><span class="legend-item"><i style="background:#2563EB"></i>CONTEXT + QUESTION</span><span class="legend-item"><i style="background:#7C3AED"></i>ROLE</span><span class="legend-item"><i style="background:#059669"></i>INSTRUCTION / CONSTRAINT</span><span class="legend-item"><i style="background:#EA580C"></i>FEW-SHOT</span><span class="legend-item"><i style="background:#DC2626"></i>CHAIN-OF-VERIFICATION</span></div>
+    <div class="metrics-grid"><section class="metric-card"><h3>BERTScore Precision</h3><div class="bar-row"><div class="bar-label">CONTEXT + QUESTION</div><div class="track"><div class="bar" style="width:64.69%;background:#2563EB"></div></div><div class="bar-value">0.647</div></div><div class="bar-row"><div class="bar-label">ROLE</div><div class="track"><div class="bar" style="width:71.31%;background:#7C3AED"></div></div><div class="bar-value">0.713<span class="best">BEST</span></div></div><div class="bar-row"><div class="bar-label">INSTRUCTION / CONSTRAINT</div><div class="track"><div class="bar" style="width:68.55%;background:#059669"></div></div><div class="bar-value">0.686</div></div><div class="bar-row"><div class="bar-label">FEW-SHOT</div><div class="track"><div class="bar" style="width:70.62%;background:#EA580C"></div></div><div class="bar-value">0.706</div></div><div class="bar-row"><div class="bar-label">CHAIN-OF-VERIFICATION</div><div class="track"><div class="bar" style="width:70.18%;background:#DC2626"></div></div><div class="bar-value">0.702</div></div></section><section class="metric-card"><h3>BERTScore Recall</h3><div class="bar-row"><div class="bar-label">CONTEXT + QUESTION</div><div class="track"><div class="bar" style="width:76.29%;background:#2563EB"></div></div><div class="bar-value">0.763<span class="best">BEST</span></div></div><div class="bar-row"><div class="bar-label">ROLE</div><div class="track"><div class="bar" style="width:75.11%;background:#7C3AED"></div></div><div class="bar-value">0.751</div></div><div class="bar-row"><div class="bar-label">INSTRUCTION / CONSTRAINT</div><div class="track"><div class="bar" style="width:75.93%;background:#059669"></div></div><div class="bar-value">0.759</div></div><div class="bar-row"><div class="bar-label">FEW-SHOT</div><div class="track"><div class="bar" style="width:73.55%;background:#EA580C"></div></div><div class="bar-value">0.736</div></div><div class="bar-row"><div class="bar-label">CHAIN-OF-VERIFICATION</div><div class="track"><div class="bar" style="width:70.85%;background:#DC2626"></div></div><div class="bar-value">0.709</div></div></section><section class="metric-card"><h3>BERTScore F1</h3><div class="bar-row"><div class="bar-label">CONTEXT + QUESTION</div><div class="track"><div class="bar" style="width:69.90%;background:#2563EB"></div></div><div class="bar-value">0.699</div></div><div class="bar-row"><div class="bar-label">ROLE</div><div class="track"><div class="bar" style="width:72.94%;background:#7C3AED"></div></div><div class="bar-value">0.729<span class="best">BEST</span></div></div><div class="bar-row"><div class="bar-label">INSTRUCTION / CONSTRAINT</div><div class="track"><div class="bar" style="width:71.87%;background:#059669"></div></div><div class="bar-value">0.719</div></div><div class="bar-row"><div class="bar-label">FEW-SHOT</div><div class="track"><div class="bar" style="width:71.79%;background:#EA580C"></div></div><div class="bar-value">0.718</div></div><div class="bar-row"><div class="bar-label">CHAIN-OF-VERIFICATION</div><div class="track"><div class="bar" style="width:70.27%;background:#DC2626"></div></div><div class="bar-value">0.703</div></div></section><section class="metric-card"><h3>Faithfulness</h3><div class="bar-row"><div class="bar-label">CONTEXT + QUESTION</div><div class="track"><div class="bar" style="width:58.70%;background:#2563EB"></div></div><div class="bar-value">0.587</div></div><div class="bar-row"><div class="bar-label">ROLE</div><div class="track"><div class="bar" style="width:40.13%;background:#7C3AED"></div></div><div class="bar-value">0.401</div></div><div class="bar-row"><div class="bar-label">INSTRUCTION / CONSTRAINT</div><div class="track"><div class="bar" style="width:61.93%;background:#059669"></div></div><div class="bar-value">0.619<span class="best">BEST</span></div></div><div class="bar-row"><div class="bar-label">FEW-SHOT</div><div class="track"><div class="bar" style="width:38.28%;background:#EA580C"></div></div><div class="bar-value">0.383</div></div><div class="bar-row"><div class="bar-label">CHAIN-OF-VERIFICATION</div><div class="track"><div class="bar" style="width:32.76%;background:#DC2626"></div></div><div class="bar-value">0.328</div></div></section><section class="metric-card"><h3>Answer Relevancy</h3><div class="bar-row"><div class="bar-label">CONTEXT + QUESTION</div><div class="track"><div class="bar" style="width:83.52%;background:#2563EB"></div></div><div class="bar-value">0.835<span class="best">BEST</span></div></div><div class="bar-row"><div class="bar-label">ROLE</div><div class="track"><div class="bar" style="width:55.45%;background:#7C3AED"></div></div><div class="bar-value">0.555</div></div><div class="bar-row"><div class="bar-label">INSTRUCTION / CONSTRAINT</div><div class="track"><div class="bar" style="width:68.01%;background:#059669"></div></div><div class="bar-value">0.680</div></div><div class="bar-row"><div class="bar-label">FEW-SHOT</div><div class="track"><div class="bar" style="width:42.42%;background:#EA580C"></div></div><div class="bar-value">0.424</div></div><div class="bar-row"><div class="bar-label">CHAIN-OF-VERIFICATION</div><div class="track"><div class="bar" style="width:35.40%;background:#DC2626"></div></div><div class="bar-value">0.354</div></div></section><section class="metric-card"><h3>Context Precision</h3><div class="bar-row"><div class="bar-label">CONTEXT + QUESTION</div><div class="track"><div class="bar" style="width:76.67%;background:#2563EB"></div></div><div class="bar-value">0.767<span class="best">BEST</span></div></div><div class="bar-row"><div class="bar-label">ROLE</div><div class="track"><div class="bar" style="width:76.67%;background:#7C3AED"></div></div><div class="bar-value">0.767<span class="best">BEST</span></div></div><div class="bar-row"><div class="bar-label">INSTRUCTION / CONSTRAINT</div><div class="track"><div class="bar" style="width:76.67%;background:#059669"></div></div><div class="bar-value">0.767<span class="best">BEST</span></div></div><div class="bar-row"><div class="bar-label">FEW-SHOT</div><div class="track"><div class="bar" style="width:76.67%;background:#EA580C"></div></div><div class="bar-value">0.767<span class="best">BEST</span></div></div><div class="bar-row"><div class="bar-label">CHAIN-OF-VERIFICATION</div><div class="track"><div class="bar" style="width:76.67%;background:#DC2626"></div></div><div class="bar-value">0.767<span class="best">BEST</span></div></div></section><section class="metric-card"><h3>Context Recall</h3><div class="bar-row"><div class="bar-label">CONTEXT + QUESTION</div><div class="track"><div class="bar" style="width:72.67%;background:#2563EB"></div></div><div class="bar-value">0.727<span class="best">BEST</span></div></div><div class="bar-row"><div class="bar-label">ROLE</div><div class="track"><div class="bar" style="width:72.67%;background:#7C3AED"></div></div><div class="bar-value">0.727<span class="best">BEST</span></div></div><div class="bar-row"><div class="bar-label">INSTRUCTION / CONSTRAINT</div><div class="track"><div class="bar" style="width:72.67%;background:#059669"></div></div><div class="bar-value">0.727<span class="best">BEST</span></div></div><div class="bar-row"><div class="bar-label">FEW-SHOT</div><div class="track"><div class="bar" style="width:72.67%;background:#EA580C"></div></div><div class="bar-value">0.727<span class="best">BEST</span></div></div><div class="bar-row"><div class="bar-label">CHAIN-OF-VERIFICATION</div><div class="track"><div class="bar" style="width:72.67%;background:#DC2626"></div></div><div class="bar-value">0.727<span class="best">BEST</span></div></div></section></div>
+    <section class="metric-card time">
+      <h3>평균 응답 생성 시간 · 낮을수록 좋음</h3>
+      <div class="bar-row"><div class="bar-label">CONTEXT + QUESTION</div><div class="track"><div class="bar" style="width:100.00%;background:#2563EB"></div></div><div class="bar-value">12.90초</div></div><div class="bar-row"><div class="bar-label">ROLE</div><div class="track"><div class="bar" style="width:39.96%;background:#7C3AED"></div></div><div class="bar-value">5.15초</div></div><div class="bar-row"><div class="bar-label">INSTRUCTION / CONSTRAINT</div><div class="track"><div class="bar" style="width:57.57%;background:#059669"></div></div><div class="bar-value">7.42초</div></div><div class="bar-row"><div class="bar-label">FEW-SHOT</div><div class="track"><div class="bar" style="width:35.87%;background:#EA580C"></div></div><div class="bar-value">4.63초</div></div><div class="bar-row"><div class="bar-label">CHAIN-OF-VERIFICATION</div><div class="track"><div class="bar" style="width:30.29%;background:#DC2626"></div></div><div class="bar-value">3.91초<span class="best">FASTEST</span></div></div>
+    </section>
+  </section>
+
+  <section class="panel">
+    <h2>프롬프트별 평균값</h2>
+    <p class="note">n은 오류·결측치를 제외하고 평균 계산에 사용된 질문 수입니다.</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>프롬프트</th><th>BERTScore Precision</th><th>BERTScore Recall</th><th>BERTScore F1</th><th>Faithfulness</th><th>Answer Relevancy</th><th>Context Precision</th><th>Context Recall</th><th>응답 생성 시간(초)</th></tr></thead>
+        <tbody><tr><th class="variant-name">CONTEXT + QUESTION</th><td>0.647<small>n=25</small></td><td class="best-cell">0.763<small>n=25</small></td><td>0.699<small>n=25</small></td><td>0.587<small>n=25</small></td><td class="best-cell">0.835<small>n=25</small></td><td class="best-cell">0.767<small>n=25</small></td><td class="best-cell">0.727<small>n=25</small></td><td>12.90<small>n=25</small></td></tr><tr><th class="variant-name">ROLE</th><td class="best-cell">0.713<small>n=25</small></td><td>0.751<small>n=25</small></td><td class="best-cell">0.729<small>n=25</small></td><td>0.401<small>n=25</small></td><td>0.555<small>n=25</small></td><td class="best-cell">0.767<small>n=25</small></td><td class="best-cell">0.727<small>n=25</small></td><td>5.15<small>n=25</small></td></tr><tr><th class="variant-name">INSTRUCTION / CONSTRAINT</th><td>0.686<small>n=25</small></td><td>0.759<small>n=25</small></td><td>0.719<small>n=25</small></td><td class="best-cell">0.619<small>n=25</small></td><td>0.680<small>n=25</small></td><td class="best-cell">0.767<small>n=25</small></td><td class="best-cell">0.727<small>n=25</small></td><td>7.42<small>n=25</small></td></tr><tr><th class="variant-name">FEW-SHOT</th><td>0.706<small>n=25</small></td><td>0.736<small>n=25</small></td><td>0.718<small>n=25</small></td><td>0.383<small>n=25</small></td><td>0.424<small>n=25</small></td><td class="best-cell">0.767<small>n=25</small></td><td class="best-cell">0.727<small>n=25</small></td><td>4.63<small>n=25</small></td></tr><tr><th class="variant-name">CHAIN-OF-VERIFICATION</th><td>0.702<small>n=25</small></td><td>0.709<small>n=25</small></td><td>0.703<small>n=25</small></td><td>0.328<small>n=25</small></td><td>0.354<small>n=25</small></td><td class="best-cell">0.767<small>n=25</small></td><td class="best-cell">0.727<small>n=25</small></td><td class="best-cell">3.91<small>n=25</small></td></tr></tbody>
+      </table>
+    </div>
+  </section>
+
+  <section class="panel">
+    <h2>선정된 질문</h2>
+    <p class="note">같은 25개 질문이 모든 프롬프트에 공통으로 적용되었습니다.</p>
+    <div class="table-wrap">
+      <table class="questions">
+        <thead><tr><th>ID</th><th>차량</th><th>답변 가능 여부</th><th>난이도</th><th>질문</th></tr></thead>
+        <tbody><tr><td>82</td><td>투싼</td><td>문서 내 답변</td><td>쉬움</td><td>투싼 HTRAC는 평소 도로와 미끄럽거나 험한 길에서 바퀴에 힘을 어떻게 나눠?</td></tr><tr><td>15</td><td>아이오닉 6</td><td>문서 내 답변</td><td>어려움</td><td>아이오닉 6에서 스마트 회생제동은 언제 켤 수 있고, 켜졌는지는 어디서 확인해?</td></tr><tr><td>4</td><td>아이오닉 6</td><td>문서 내 답변</td><td>쉬움</td><td>아이오닉 6 배터리 성능을 오래 유지하려면 평소 충전을 어떻게 하는 게 좋아?</td></tr><tr><td>95</td><td>투싼</td><td>문서 내 답변</td><td>어려움</td><td>투싼이 앞차가 출발했는데도 엔진을 다시 켜지 않을 때가 있어. 어떤 환경에서 그럴 수 있고 내가 직접 재시동하려면 어떻게 해?</td></tr><tr><td>36</td><td>아반떼</td><td>문서 내 답변</td><td>어려움</td><td>아반떼를 다른 사람이 밀어서 옮길 수 있게 N단으로 주차하려면 어떻게 해야 해?</td></tr><tr><td>32</td><td>아반떼</td><td>문서 내 답변</td><td>보통</td><td>아반떼 전방 충돌 경고가 너무 빠르거나 늦게 느껴져. 경고 시점을 어떻게 조절하고 &#x27;느리게&#x27;는 언제 쓰는 거야?</td></tr><tr><td>29</td><td>아반떼</td><td>문서 내 답변</td><td>보통</td><td>아반떼 Auto Hold가 켜져 있는데도 작동하지 않는 경우가 있어?</td></tr><tr><td>18</td><td>아이오닉 6</td><td>문서 외 질문</td><td>보통</td><td>영하 10도에서 히터를 23도로 켜고 아이오닉 6를 타면 정확히 몇 km 갈 수 있어?</td></tr><tr><td>14</td><td>아이오닉 6</td><td>문서 내 답변</td><td>어려움</td><td>아이오닉 6에서 스마트 회생제동을 쓰다가 아이 페달로 바꾸려면 어떻게 해? 둘을 같이 쓸 수 있어?</td></tr><tr><td>87</td><td>투싼</td><td>문서 내 답변</td><td>보통</td><td>투싼의 내리막길 저속 주행 기능은 아무 때나 작동해? 속도나 길 상태 조건이 있어?</td></tr><tr><td>70</td><td>넥쏘</td><td>문서 내 답변</td><td>보통</td><td>넥쏘에서 수소 누출이 감지됐어. 차는 어떻게 반응하고 나는 뭘 해야 해?</td></tr><tr><td>12</td><td>아이오닉 6</td><td>문서 내 답변</td><td>보통</td><td>아이오닉 6 시동을 껐는데도 모터룸 쪽에서 팬이 돌아. 가까이 가도 괜찮아?</td></tr><tr><td>76</td><td>넥쏘</td><td>문서 내 답변</td><td>어려움</td><td>넥쏘 서비스센터에서 주행 가능 거리 표시를 초기화했더니 숫자가 늘었어. 실제로 더 멀리 갈 수 있게 된 거야?</td></tr><tr><td>55</td><td>아반떼 하이브리드</td><td>문서 내 답변</td><td>어려움</td><td>아반떼 하이브리드에 정차하라는 경고나 시동을 걸지 말라는 경고, 전원공급장치 점검 경고가 뜨면 각각 어떻게 대응해야 해?</td></tr><tr><td>5</td><td>아이오닉 6</td><td>문서 내 답변</td><td>쉬움</td><td>아이오닉 6 기본형과 항속형을 350 kW 급속 충전기로 10%에서 80%까지 충전하면 각각 얼마나 걸려?</td></tr><tr><td>98</td><td>투싼</td><td>문서 외 질문</td><td>보통</td><td>서울에서 투싼 디젤을 타면 1년 자동차세가 정확히 얼마야?</td></tr><tr><td>89</td><td>투싼</td><td>문서 내 답변</td><td>보통</td><td>투싼의 주행 모드는 각각 어떤 상황에서 사용해?</td></tr><tr><td>28</td><td>아반떼</td><td>문서 내 답변</td><td>보통</td><td>아반떼에서 Auto Hold를 켜고 멈추면 표시등이 어떻게 바뀌어?</td></tr><tr><td>30</td><td>아반떼</td><td>문서 내 답변</td><td>보통</td><td>아반떼가 고속도로 주행 보조로 앞차를 따라 멈췄어. 앞차가 금방 출발할 때와 30초 넘게 멈춘 뒤 출발할 때 내 차 반응이 달라?</td></tr><tr><td>65</td><td>넥쏘</td><td>문서 내 답변</td><td>쉬움</td><td>넥쏘 수소가 15% 아래로 남으면 주차 중 연료전지 보호 기능도 작동해?</td></tr><tr><td>78</td><td>넥쏘</td><td>문서 외 질문</td><td>보통</td><td>넥쏘 수소탱크는 어느 회사가 어느 공장에서 만든 거야?</td></tr><tr><td>85</td><td>투싼</td><td>문서 내 답변</td><td>쉬움</td><td>투싼 타이어 경고등이 한동안 깜빡이다가 계속 켜졌어. 무슨 뜻이야?</td></tr><tr><td>72</td><td>넥쏘</td><td>문서 내 답변</td><td>보통</td><td>넥쏘에 수소를 넣기 전과 다 넣은 뒤에는 시동과 충전구를 어떻게 해야 해?</td></tr><tr><td>26</td><td>아반떼</td><td>문서 내 답변</td><td>쉬움</td><td>아반떼 시동을 껐는데 선루프를 열어 둔 채 내리려고 하면 차가 알려줘?</td></tr><tr><td>90</td><td>투싼</td><td>문서 내 답변</td><td>보통</td><td>투싼에서 험로 주행 모드를 켠 채 일반 도로를 계속 달려도 괜찮아?</td></tr></tbody>
+      </table>
+    </div>
+  </section>
+
+  <p class="footer">답변 모델: huggingface / Qwen/Qwen2.5-3B-Instruct · 평가 모델: solar-pro3
+  · 생성: 2026-07-28T09:56:05+09:00</p>
+</main>
+</body>
+</html>
