@@ -124,8 +124,9 @@ def main() -> int:
     sub = p.add_subparsers(dest="command", required=True)
 
     common = argparse.ArgumentParser(add_help=False)
-    common.add_argument("--variant", default="constraint", choices=["basic", "role", "constraint"])
-    common.add_argument("--top-k", type=int, default=3)
+    common.add_argument("--variant", default="few_shot",
+                        choices=["basic", "role", "constraint", "few_shot"])
+    common.add_argument("--top-k", type=int, default=7)
     common.add_argument("--max-new-tokens", type=int, default=512,
                         help="답변 최대 토큰(로컬 모델 속도↔길이 조절, 예: 256)")
 

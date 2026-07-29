@@ -22,7 +22,17 @@ from rag_chain import RagChain, make_llm  # noqa: E402
 ROOT = Path(__file__).resolve().parents[2]  # 레포 루트
 EVAL_DIR = ROOT / "eval"
 
-NO_ANSWER_MARKERS = ("해당 정보 없음", "해당 차량 정보 없음", "정보 없음", "해당 없음", "알 수 없")
+# '정보 없음/문서에 없음'을 뜻하는 다양한 한국어 표현 (Few-shot 답변은 표현이 제각각)
+NO_ANSWER_MARKERS = (
+    "해당 정보 없음", "해당 차량 정보 없음", "정보 없음", "해당 없음", "알 수 없",
+    "찾지 못", "찾을 수 없", "찾아볼 수 없", "확인되지 않", "확인할 수 없",
+    "명시되어 있지 않", "명시되지 않", "명시하지 않",
+    "설명되어 있지 않", "설명하지 않", "나와 있지 않", "나와있지 않",
+    "정보를 찾", "정보가 없", "제공되지 않", "포함되어 있지 않",
+    "기재되어 있지 않", "언급되어 있지 않", "언급되지 않",
+)
+
+CTX_DELIM = "\n===CHUNK===\n"  # 검색 문맥을 CSV 한 칸에 저장할 때 청크 구분자(RAGAS 사후계산용)
 
 
 def _norm(text: str) -> str:
@@ -93,7 +103,7 @@ def summarize(results: list[dict], model_spec: str) -> None:
 
 def write_csv(path: Path, results: list[dict]) -> None:
     cols = ["id", "type", "car", "question", "reference", "answer",
-            "sources", "bertscore_f1", "hit@k", "refused", "latency"]
+            "sources", "bertscore_f1", "hit@k", "refused", "latency", "contexts"]
     path.parent.mkdir(exist_ok=True)
     with open(path, "w", encoding="utf-8-sig", newline="") as f:
         w = csv.DictWriter(f, fieldnames=cols)
@@ -102,7 +112,7 @@ def write_csv(path: Path, results: list[dict]) -> None:
             w.writerow({c: r.get(c, "") for c in cols})
 
 
-def run(model_spec: str, variant: str = "constraint", k: int = 3,
+def run(model_spec: str, variant: str = "few_shot", k: int = 7,
         max_new_tokens: int = 512) -> list[dict]:
     rows = load_eval()
     print(f"평가셋 {len(rows)}문항 | 모델 {model_spec} | 프롬프트 {variant} | top_k={k}\n")
@@ -118,6 +128,10 @@ def run(model_spec: str, variant: str = "constraint", k: int = 3,
             "answer": res.answer, "sources": " | ".join(res.sources),
             "hit@k": hit_at_k(r.get("evidence", ""), res.contexts),
             "refused": refused(res.answer), "latency": round(res.latency, 3),
+            # RAGAS 사후계산용: 검색 문맥 전체를 청크 구분자로 이어 저장
+            "contexts": CTX_DELIM.join(
+                str(getattr(d, "page_content", "") or "") for d in res.contexts
+            ),
         }
         results.append(row)
         print(f"  [{i:>2}/{len(rows)}] {r['id']} {r['question'][:28]:<28} "
@@ -138,7 +152,8 @@ if __name__ == "__main__":
     p = argparse.ArgumentParser(description="RAG 평가")
     p.add_argument("--model", default="upstage:solar-pro",
                    help="local:<id> / gemini:<model> / upstage:<model>")
-    p.add_argument("--variant", default="constraint", choices=["basic", "role", "constraint"])
-    p.add_argument("--top-k", type=int, default=3)
+    p.add_argument("--variant", default="few_shot",
+                   choices=["basic", "role", "constraint", "few_shot"])
+    p.add_argument("--top-k", type=int, default=7)
     a = p.parse_args()
     run(a.model, a.variant, a.top_k)

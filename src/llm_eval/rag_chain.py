@@ -26,11 +26,13 @@ sys.path.insert(0, str(_PROMPT_DIR))
 
 from prompt_templates import PromptVariant, build_prompt  # noqa: E402
 from retrieval_adapter import (  # noqa: E402
+    DEFAULT_TOP_K,
     SUPPORTED_CARS,
     create_retriever,
     detect_car_from_question,
     retrieve_documents,
 )
+from run_local_model import apply_output_guard  # noqa: E402  (Few-shot 답변 후처리)
 
 
 def _load_env() -> None:
@@ -78,7 +80,7 @@ class LocalLLM:
         import torch
         from transformers import AutoModelForCausalLM, AutoTokenizer
 
-        from run_local_model import generate_answer, usable_hf_token
+        from run_local_model import usable_hf_token
 
         token = usable_hf_token(os.environ.get("HF_TOKEN"))
         has_cuda = torch.cuda.is_available()
@@ -131,14 +133,30 @@ class LocalLLM:
 
         self.model.eval()
         self._torch = torch
-        self._generate_answer = generate_answer
         self.max_new_tokens = max_new_tokens
         self.name = f"local:{model_id}" + ("(4bit)" if load_in_4bit else "")
 
     def generate(self, prompt: str) -> str:
-        return self._generate_answer(
-            prompt, self.tokenizer, self.model, self._torch, self.device, self.max_new_tokens
+        # 팀의 run_local_model.load_huggingface_generator와 동일한 그리디 생성 로직
+        messages = [{"role": "user", "content": prompt}]
+        rendered = self.tokenizer.apply_chat_template(
+            messages, tokenize=False, add_generation_prompt=True
         )
+        inputs = self.tokenizer(rendered, return_tensors="pt").to(self.device)
+        input_length = inputs["input_ids"].shape[1]
+        with self._torch.inference_mode():
+            output_ids = self.model.generate(
+                **inputs,
+                max_new_tokens=self.max_new_tokens,
+                do_sample=False,
+                temperature=None,
+                top_p=None,
+                top_k=None,
+                pad_token_id=self.tokenizer.eos_token_id,
+            )
+        return self.tokenizer.decode(
+            output_ids[0, input_length:], skip_special_tokens=True
+        ).strip()
 
 
 class _CompatLLM:
@@ -244,7 +262,8 @@ class RagResult:
 class RagChain:
     """검색기를 한 번 로드해두고, LLM만 바꿔가며 질의에 답한다."""
 
-    def __init__(self, llm, variant: PromptVariant | str = PromptVariant.CONSTRAINT, k: int = 3):
+    def __init__(self, llm, variant: PromptVariant | str = PromptVariant.FEW_SHOT,
+                 k: int = DEFAULT_TOP_K):
         self.llm = llm
         self.variant = PromptVariant(variant)
         self.k = k
@@ -260,7 +279,8 @@ class RagChain:
         t0 = time.perf_counter()
         docs = retrieve_documents(question=question, car=car, k=self.k, retriever=self.retriever)
         prompt = build_prompt(question=question, documents=docs, variant=self.variant, car=car)
-        answer = self.llm.generate(prompt)
+        # final_prompt.py와 동일하게 Few-shot 답변 후처리(apply_output_guard) 적용
+        answer = apply_output_guard(self.llm.generate(prompt), self.variant)
         return RagResult(question, car, answer.strip(), docs, time.perf_counter() - t0)
 
 
