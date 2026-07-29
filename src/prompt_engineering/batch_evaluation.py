@@ -514,8 +514,12 @@ def build_html_report(
 
     selected_variants = list(variants or PromptVariant)
     sample_size = int(metadata.get("sample_size", len(results)))
+    top_k = int(metadata.get("top_k", 0))
     seed = metadata.get("seed", "")
     generated_at = html.escape(str(metadata.get("updated_at", "")))
+    retriever_backend = html.escape(
+        str(metadata.get("retriever_backend", ""))
+    )
     provider = html.escape(str(metadata.get("answer_provider", "")))
     model = html.escape(str(metadata.get("answer_model", "")))
     evaluation_model = html.escape(
@@ -741,7 +745,8 @@ td small {{ display: block; margin-top: 4px; color: var(--muted); font-size: 9px
   <section class="hero">
     <p class="eyebrow">RAG PROMPT BENCHMARK</p>
     <h1>프롬프트 4종 성능 비교</h1>
-    <p>동일하게 무작위 추출한 질문과 동일한 top-3 검색 문맥을 사용해
+    <p>동일하게 무작위 추출한 질문과 동일한 top-{top_k}
+    {retriever_backend} 검색 문맥을 사용해
     답변 품질, 근거 충실도, 검색 품질, 생성 시간을 비교한 결과입니다.</p>
   </section>
 
@@ -756,7 +761,8 @@ td small {{ display: block; margin-top: 4px; color: var(--muted); font-size: 9px
     <h2>평균 품질 지표</h2>
     <p class="note">모든 품질 지표는 0~1 범위이며 높을수록 좋습니다.
     Context Precision과 Context Recall은 프롬프트 적용 전 동일한 검색 결과를
-    평가하므로 5개 기법에서 같은 값이 나오는 것이 정상입니다.</p>
+    평가하므로 {len(selected_variants)}개 기법에서 같은 값이 나오는 것이
+    정상입니다.</p>
     <div class="legend">{legend}</div>
     <div class="metrics-grid">{''.join(quality_sections)}</div>
     <section class="metric-card time">
@@ -787,7 +793,8 @@ td small {{ display: block; margin-top: 4px; color: var(--muted); font-size: 9px
     </div>
   </section>
 
-  <p class="footer">답변 모델: {provider} / {model} · 평가 모델: {evaluation_model}
+  <p class="footer">검색: {retriever_backend} top-{top_k}
+  · 답변 모델: {provider} / {model} · 평가 모델: {evaluation_model}
   · 생성: {generated_at}</p>
 </main>
 </body>

@@ -27,6 +27,7 @@ from run_local_model import (
     apply_output_guard,
     is_exit_command,
     load_upstage_generator,
+    parse_args,
     resolve_model_id,
 )
 
@@ -200,6 +201,10 @@ class PromptTemplateTests(unittest.TestCase):
             "solar-custom",
         )
 
+    def test_default_execution_uses_all_prompt_variants(self):
+        with patch.object(sys, "argv", ["run_local_model.py"]):
+            self.assertEqual(parse_args().variant, "all")
+
     def test_constraint_no_information_output_is_normalized(self):
         raw_answer = "해당 정보 없음\n\n[출처: avante p.180]"
 
@@ -217,6 +222,19 @@ class PromptTemplateTests(unittest.TestCase):
                 PromptVariant.CONSTRAINT,
             ),
             "해당 정보 없음",
+        )
+
+    def test_general_knowledge_fallback_is_printed_on_separate_lines(self):
+        raw_answer = (
+            "차량 취급설명서에서 해당 내용을 찾지 못했습니다. "
+            "[LLM 일반 지식 기반 참고 답변] 아반떼의 연료필터는 점검이 필요합니다."
+        )
+
+        self.assertEqual(
+            apply_output_guard(raw_answer, PromptVariant.CONSTRAINT),
+            "차량 취급설명서에서 해당 내용을 찾지 못했습니다.\n"
+            "[LLM 일반 지식 기반 참고 답변]\n\n"
+            "아반떼의 연료필터는 점검이 필요합니다.",
         )
 
     def test_upstage_generator_uses_selected_model_without_real_api_call(self):
